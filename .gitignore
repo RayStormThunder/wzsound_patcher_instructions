@@ -82,4 +82,5 @@ CMakeLists.txt.user*
 /build*/
 
 
+**/.pyproject.user
 **/.qtcreator
