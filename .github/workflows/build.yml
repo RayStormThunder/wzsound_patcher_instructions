@@ -3,8 +3,10 @@ name: Build and Release EXE
 on:
   push:
     branches:
-      - main
-      - RST_1
+      - '**'
+  pull_request:
+    branches:
+      - '**'
   release:
     types: [created]
 
@@ -64,10 +66,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wzsound_main
-          path: release/wzsound_main.zip
+          path: release/`wzsound_patcher_instructions.zip
 
       - name: Upload ZIP to GitHub Release (If Release Created)
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: release/wzsound_main.zip
+          files: release/`wzsound_patcher_instructions.zip
