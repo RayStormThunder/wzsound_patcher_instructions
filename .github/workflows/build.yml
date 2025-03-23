@@ -61,16 +61,17 @@ jobs:
         run: |
           mkdir release
           move dist\wzsound_main.exe release\
-          powershell -Command "Compress-Archive -Path release\wzsound_main.exe -DestinationPath release\wzsound_patcher_instructions.zip"
+          powershell -Command "Compress-Archive -Path release\wzsound_main.exe -DestinationPath wzsound_patcher_instructions.zip"
 
-      - name: Upload ZIP as Artifact (not double-zipped)
+      - name: Upload ZIP as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: wzsound_patcher_instructions
-          path: release/wzsound_patcher_instructions.zip
+          path: wzsound_patcher_instructions.zip
 
       - name: Upload ZIP to GitHub Release (If Release Created)
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: release/wzsound_patcher_instructions.zip
+          files: wzsound_patcher_instructions.zip
+
