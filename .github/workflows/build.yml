@@ -57,16 +57,16 @@ jobs:
         run: |
           pyinstaller --onefile --hidden-import=yaml --add-data "Instructions;Instructions" --add-data "GUI;GUI" wzsound_main.py
 
-      - name: Package EXE into ZIP
+      - name: Create Release Folder and Zip
         run: |
           mkdir release
           move dist\wzsound_main.exe release\
           powershell -Command "Compress-Archive -Path release\wzsound_main.exe -DestinationPath release\wzsound_patcher_instructions.zip"
 
-      - name: Upload ZIP as Artifact
+      - name: Upload ZIP as Artifact (not double-zipped)
         uses: actions/upload-artifact@v4
         with:
-          name: wzsound_main
+          name: wzsound_patcher_instructions
           path: release/wzsound_patcher_instructions.zip
 
       - name: Upload ZIP to GitHub Release (If Release Created)
