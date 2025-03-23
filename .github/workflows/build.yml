@@ -51,7 +51,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install pyinstaller pyyaml PyQt5
+          pip install pyinstaller pyyaml PySide6
 
       - name: Build Executable
         run: |
