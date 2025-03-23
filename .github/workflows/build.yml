@@ -1,0 +1,72 @@
+name: Build and Release EXE
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history and tags
+
+      - name: Get Latest Tag (Version)
+        id: get_version
+        shell: bash  # Force use of bash instead of PowerShell
+        run: |
+          VERSION=$(git tag --sort=-v:refname | head -n1 2>/dev/null || echo "0.0.0")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Detected Version: $VERSION"
+
+      - name: Get Commit Hash
+        id: get_commit
+        shell: bash  # Force use of bash instead of PowerShell
+        run: |
+          echo "COMMIT_ID=$(git rev-parse --short=7 HEAD)" >> $GITHUB_ENV
+
+      - name: Create `version.py`
+        run: |
+          echo "VERSION = '${{ env.VERSION }}'" > version.py
+          echo "COMMIT_ID = '${{ env.COMMIT_ID }}'" >> version.py
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install Dependencies
+        run: |
+          pip install pyinstaller pyyaml PyQt5
+
+      - name: Build Executable
+        run: |
+          pyinstaller --onefile --hidden-import=yaml --add-data "Instructions;Instructions" --add-data "GUI;GUI" wzsound_main.py
+
+      - name: Package EXE into `wzsound_patcher_instructions.zip`
+        run: |
+          mkdir release
+          mv dist/wzsound_main.exe release/wzsound_main.exe
+          cd release
+          powershell -Command "Compress-Archive -Path wzsound_main.exe -DestinationPath wzsound_patcher_instructions.zip"
+
+      - name: Upload ZIP as Artifact (For GitHub Actions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wzsound_main
+          path: release/wzsound_main.zip
+
+      - name: Upload ZIP to GitHub Release (If Release Created)
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/wzsound_main.zip
