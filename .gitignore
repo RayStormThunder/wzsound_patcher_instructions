@@ -1,5 +1,37 @@
 # This file is used to ignore files which are generated
 # ----------------------------------------------------------------------------
+BUILD.bat
+
+# Ignore info.txt
+info.txt
+
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore PyInstaller build files
+dist/
+build/
+release/
+*.spec
+
+# Ignore virtual environments (if using venv)
+venv/
+.env/
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Ignore system files (Windows/macOS/Linux)
+*.swp
+*.swo
+.idea/
+.vscode/
 
 *~
 *.autosave
