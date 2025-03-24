@@ -3,16 +3,18 @@ import os
 import sys
 import shutil
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 from GUI.ui_form import Ui_WZSPI_MainWindow
+from rwar_extract import extract_rwar_files
+from rwav_extract import setup_extraction
 
-from GUI.wzspi_mainwindow import WZSPI_MainWindow  # Assuming this is your main window class
+from GUI.wzspi_mainwindow import WZSPI_MainWindow, MissingBrsarDialog  # Assuming this is your main window class
 
 # Import version information
 try:
-	from version import VERSION, COMMIT_ID
+    from version import VERSION, COMMIT_ID
 except ImportError:
-	VERSION, COMMIT_ID = "v0.0.0", "badcafe"
+    VERSION, COMMIT_ID = "v0.0.0", "badcafe"
 
 # EXE location
 working_directory = os.path.dirname(sys.executable)
@@ -23,60 +25,47 @@ INSTRUCTIONS_FOLDER = os.path.join(working_directory, "Instructions")
 # Folders that need to be extracted
 bundled_folders = ["Instructions"]
 
-def get_yaml_version(game_name):
-	yaml_path = os.path.join(INSTRUCTIONS_FOLDER, "program_data.yaml")
-	try:
-		with open(yaml_path, "r", encoding="utf-8") as file:
-			versions = yaml.safe_load(file).get("Versions", {})
-			return versions.get(game_name, "Unknown Version")
-	except FileNotFoundError:
-		return "Version File Not Found"
-	except yaml.YAMLError:
-		return "Invalid YAML Format"
-
-def change_yaml_version(game_name, new_version):
-	yaml_path = os.path.join(INSTRUCTIONS_FOLDER, "program_data.yaml")
-	try:
-		if os.path.exists(yaml_path):
-			with open(yaml_path, "r", encoding="utf-8") as file:
-				data = yaml.safe_load(file) or {}
-		else:
-			data = {}
-
-		if "Versions" not in data or not isinstance(data["Versions"], dict):
-			data["Versions"] = {}
-
-		data["Versions"][game_name] = new_version
-
-		with open(yaml_path, "w", encoding="utf-8") as file:
-			yaml.safe_dump(data, file, allow_unicode=True)
-
-		return True
-	except yaml.YAMLError:
-		return False
-
 def extract_folders():
-	for folder in bundled_folders:
-		source = os.path.join(sys._MEIPASS, folder) if getattr(sys, 'frozen', False) else folder
-		destination = os.path.join(working_directory, folder)
-		shutil.copytree(source, destination, dirs_exist_ok=True)
+    for folder in bundled_folders:
+        source = os.path.join(sys._MEIPASS, folder) if getattr(sys, 'frozen', False) else folder
+        destination = os.path.join(working_directory, folder)
+
+        if not os.path.exists(destination):
+            shutil.copytree(source, destination)
+            print(f"Extracted folder: {folder}")
+        else:
+            print(f"Skipped existing folder: {folder}")
+
+def check_wzsound_file(error_window):
+    program_data_dir = os.path.join(working_directory, 'ProgramData')
+    wzsound_path = os.path.join(program_data_dir, 'WZSound.brsar')
+
+    if os.path.exists(wzsound_path):
+        print(f"WZSound.brsar found at: {wzsound_path}")
+    else:
+        print("WZSound.brsar not found. Prompting user to locate it...")
+        dialog = MissingBrsarDialog(program_data_dir, error_window)
+        result = dialog.exec()
+        if result != QDialog.Accepted:
+            QMessageBox.critical(error_window, "Missing File", "WZSound.brsar is required to continue.")
+            sys.exit(0)
+        else:
+            extract_rwar_files(wzsound_path, working_directory)
 
 def main():
-	version_last = get_yaml_version("WZSound Main")
-	version_current = (f"{VERSION} {COMMIT_ID}")
+    # Extract folders if needed
+    extract_folders()
+    setup_extraction(working_directory, "Test")
 
-	if version_last != version_current:
-		extract_folders()
+    # Start Qt app
+    app = QApplication(sys.argv)
 
-	change_yaml_version("WZSound Main", version_current)
-	print(f"WZSound Main - {VERSION} - {COMMIT_ID}")
+    window = WZSPI_MainWindow(working_directory)
+    window.setWindowTitle(f"WZSound Main - {VERSION} - {COMMIT_ID}")
+    window.show()
+    check_wzsound_file(window)
+    sys.exit(app.exec())
 
-	# Initialize and launch the UI
-	app = QApplication(sys.argv)
-	window = WZSPI_MainWindow()
-	window.setWindowTitle(f"WZSound Main - {VERSION} - {COMMIT_ID}")
-	window.show()
-	sys.exit(app.exec())
 
 if __name__ == "__main__":
-	main()
+    main()

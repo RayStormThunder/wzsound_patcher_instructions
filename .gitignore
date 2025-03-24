@@ -5,11 +5,17 @@ BUILD.bat
 # Ignore info.txt
 info.txt
 
+# Ignore the "test" folder
+GUI/Test
+
 # Ignore Python compiled files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Ignore .brsar
+*.brsar
 
 # Ignore PyInstaller build files
 dist/
