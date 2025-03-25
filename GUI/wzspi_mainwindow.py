@@ -8,7 +8,7 @@ import subprocess
 
 from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
-from PySide6.QtCore import QTimer, QStringListModel
+from PySide6.QtCore import QTimer, QStringListModel, Signal
 
 
 
@@ -86,10 +86,17 @@ except ImportError as e:
         pass
 
 class ProgressDialog(QDialog):
+        cancelled = Signal()  # Custom signal emitted if the window is closed by user
+
         def __init__(self, parent=None):
-                super().__init__(parent)
-                self.ui = Ui_Dialog_Progress()
-                self.ui.setupUi(self)
+            super().__init__(parent)
+            self.ui = Ui_Dialog_Progress()
+            self.ui.setupUi(self)
+
+        def closeEvent(self, event):
+            # Emit the custom signal on close
+            self.cancelled.emit()
+            event.accept()
 
 class MissingBrsarDialog(QDialog):
         def __init__(self, program_data_dir, parent=None):
@@ -561,26 +568,35 @@ class WZSPI_MainWindow(QMainWindow):
                 dialog.exec()
 
         def create_wzsound(self):
-                # Run RWAV extraction
-                extract_rwavs(self.working_directory, self.project_name)
-                print("Create WZSound clicked")
+            extract_rwavs(self.working_directory, self.project_name)
+            too_big_list, exact_match_list = check_modified_vs_unmodified(self.working_directory, self.project_name)
 
-                # Compare RWAVs
-                too_big_list, exact_match_list = check_modified_vs_unmodified(self.working_directory, self.project_name)
-                # Inside your function (e.g., create_wzsound)
-                progress_dialog = ProgressDialog(self)
-                progress_dialog.show()
-                QApplication.processEvents()  # 🛠️ forces the window to fully draw
-                progress_dialog.repaint()  # Force UI to draw immediately
+            progress_dialog = ProgressDialog(self)
+            cancel_flag = {'cancelled': False}
 
-                # Call patch file creation
-                create_patch_file(self.working_directory, self.project_name, too_big_list, exact_match_list, progress_dialog.ui)
-                progress_dialog.close()
+            # Connect close signal to update cancel_flag
+            progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
 
+            progress_dialog.show()
+            QApplication.processEvents()
 
-                # Show the report dialog using your new class
-                dialog = ReportDialog(self.working_directory, self.project_name, too_big_list, exact_match_list, self)
-                dialog.exec()
+            completed = create_patch_file(
+                self.working_directory,
+                self.project_name,
+                too_big_list,
+                exact_match_list,
+                progress_ui=progress_dialog.ui,
+                cancel_flag=cancel_flag
+            )
+
+            progress_dialog.close()
+
+            if not completed:
+                QMessageBox.critical(self, "Cancelled", "Operation cancelled by user.")
+                return
+
+            dialog = ReportDialog(self.working_directory, self.project_name, too_big_list, exact_match_list, self)
+            dialog.exec()
 
         def setup_project(self):
                 print("Setting up project...")
