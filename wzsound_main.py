@@ -23,7 +23,7 @@ working_directory = os.path.dirname(sys.executable)
 INSTRUCTIONS_FOLDER = os.path.join(working_directory, "Instructions")
 
 # Folders that need to be extracted
-bundled_folders = ["Instructions"]
+bundled_folders = ["Instructions", "ProgramData"]
 
 def extract_folders():
     for folder in bundled_folders:
@@ -55,7 +55,6 @@ def check_wzsound_file(error_window):
 def main():
     # Extract folders if needed
     extract_folders()
-    setup_extraction(working_directory, "Test")
 
     # Start Qt app
     app = QApplication(sys.argv)

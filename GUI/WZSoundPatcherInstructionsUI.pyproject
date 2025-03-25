@@ -2,6 +2,9 @@
     "files": [
         "wzspi_mainwindow.py",
         "form.ui",
-        "missing_brsar_dialog.ui"
+        "missing_brsar_dialog.ui",
+        "report.ui",
+        "success.ui",
+        "progress.ui"
     ]
 }

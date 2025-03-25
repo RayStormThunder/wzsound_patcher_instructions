@@ -55,7 +55,7 @@ jobs:
 
       - name: Build Executable
         run: |
-          pyinstaller --onefile --hidden-import=yaml --add-data "Instructions;Instructions" --add-data "GUI;GUI" wzsound_main.py
+          pyinstaller --onefile --hidden-import=yaml --add-data "Instructions;Instructions" --add-data "GUI;GUI" --add-data "ProgramData;ProgramData" wzsound_main.py
 
       - name: Create Release Folder and Zip
         run: |

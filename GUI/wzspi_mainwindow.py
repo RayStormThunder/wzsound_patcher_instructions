@@ -4,10 +4,11 @@ import os
 import re
 import yaml
 import shutil
+import subprocess
 
-from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog
+from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, QStringListModel
 
 
 
@@ -29,6 +30,33 @@ except ImportError:
         except ImportError as e:
                 raise ImportError("Could not import Ui_Dialog from ui_missing_brsar_dialog or GUI.ui_missing_brsar_dialog") from e
 
+# Try importing ui_report from current directory or GUI folder
+try:
+        from ui_report import Ui_Dialog_Report
+except ImportError:
+        try:
+                from GUI.ui_report import Ui_Dialog_Report
+        except ImportError as e:
+                raise ImportError("Could not import Ui_Dialog_Report from ui_report or GUI.ui_report") from e
+
+# Try importing ui_success from current directory or GUI folder
+try:
+        from ui_success import Ui_Dialog_Success
+except ImportError:
+        try:
+                from GUI.ui_success import Ui_Dialog_Success
+        except ImportError as e:
+                raise ImportError("Could not import Ui_Dialog_Success from ui_success or GUI.ui_success") from e
+
+# Try importing ui_progress from current directory or GUI folder
+try:
+        from ui_progress import Ui_Dialog_Progress
+except ImportError:
+        try:
+                from GUI.ui_progress import Ui_Dialog_Progress
+        except ImportError as e:
+                raise ImportError("Could not import Ui_Dialog_Progress from ui_progress or GUI.ui_progress") from e
+
 try:
         from rwav_extract import setup_extraction
         print("imported rwav_extract")
@@ -36,6 +64,32 @@ except ImportError as e:
         print("failed to import rwav_extract")
         pass
 
+try:
+        from brwsd_creator import build_brwsd_from_unmodified_rwavs
+        print("imported brwsd_creator")
+except ImportError as e:
+        print("failed to import brwsd_creator")
+        pass
+
+try:
+        from extract_brwsd import extract_rwavs, check_modified_vs_unmodified
+        print("imported extract_brwsd")
+except ImportError as e:
+        print("failed to import extract_brwsd")
+        pass
+
+try:
+        from patch_creator import create_patch_file
+        print("imported patch_creator")
+except ImportError as e:
+        print("failed to import patch_creator")
+        pass
+
+class ProgressDialog(QDialog):
+        def __init__(self, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog_Progress()
+                self.ui.setupUi(self)
 
 class MissingBrsarDialog(QDialog):
         def __init__(self, program_data_dir, parent=None):
@@ -59,6 +113,97 @@ class MissingBrsarDialog(QDialog):
                                 self.accept()
                         except Exception as e:
                                 QMessageBox.critical(self, "Error", f"Failed to copy file:\n{e}")
+
+class ReportDialog(QDialog):
+        def __init__(self, file_path, project_name, too_big_list, exact_match_list, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog_Report()
+                self.ui.setupUi(self)
+
+                self.too_big_list = too_big_list
+                self.project_name = project_name
+                self.working_directory = file_path  # Alias for clarity
+
+                # Set lists
+                model1 = QStringListModel()
+                model1.setStringList(exact_match_list)
+                self.ui.listView.setModel(model1)
+
+                model2 = QStringListModel()
+                model2.setStringList(too_big_list)
+                self.ui.listView_2.setModel(model2)
+
+                # Disable reset button if there are no "too big" files
+                if not too_big_list:
+                        self.ui.button_reset.setEnabled(False)
+
+                # Connect buttons
+                self.ui.button_close.clicked.connect(self.close)
+                self.ui.button_explorer.clicked.connect(self.open_folder)
+                self.ui.button_reset.clicked.connect(self.reset_modified_files)
+
+                # Set release and project paths
+                self.release_path = os.path.join(file_path, "Releases", project_name)
+                self.projects_path = os.path.join(file_path, "Projects", project_name)
+
+        def open_folder(self):
+                if os.path.exists(self.release_path):
+                        subprocess.Popen(f'explorer "{self.release_path}"')  # Windows
+                else:
+                        QMessageBox.warning(self, "Folder Not Found", f"The path does not exist:\n{self.release_path}")
+
+        def reset_modified_files(self):
+                mod_folder = os.path.join(self.projects_path, "ModifiedRwavs")
+
+                files_deleted = []
+
+                for entry in self.too_big_list:
+                        # Extract base filename before first space
+                        base_name = entry.split(" ")[0]
+
+                        mod_file_path = os.path.join(mod_folder, base_name)
+
+                        if os.path.exists(mod_file_path):
+                                try:
+                                        os.remove(mod_file_path)
+                                        files_deleted.append(base_name)
+                                except Exception as e:
+                                        QMessageBox.warning(self, "Error", f"Failed to delete {base_name}:\n{e}")
+
+                # Update label_6 and disable reset button
+                if files_deleted:
+                        self.ui.label_6.setText("These files have been reset")
+
+                        # Rebuild BRWSD after reset
+                        setup_extraction(self.working_directory, self.project_name)
+                        build_brwsd_from_unmodified_rwavs(self.working_directory, self.project_name)
+
+                        QMessageBox.information(self, "Reset Complete", f"Deleted {len(files_deleted)} file(s) from ModifiedRwavs and rebuilt BRWSD.")
+                else:
+                        QMessageBox.information(self, "No Files Reset", "No matching files were found to delete.")
+
+                # Disable reset button after use
+                self.ui.button_reset.setEnabled(False)
+
+class SuccessDialog(QDialog):
+        def __init__(self, file_path, project_name, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog_Success()
+                self.ui.setupUi(self)
+
+                # Connect buttons
+                self.ui.pushButton.clicked.connect(self.close)
+                self.ui.pushButton_2.clicked.connect(self.open_folder)
+
+                self.success_path = os.path.join(file_path, "Projects", project_name)
+
+
+        def open_folder(self):
+                if os.path.exists(self.success_path):
+                        subprocess.Popen(f'explorer "{self.success_path}"')  # Windows
+                else:
+                        QMessageBox.warning(self, "Folder Not Found", f"The path does not exist:\n{self.release_path}")
+
 
 class YamlHighlighter(QSyntaxHighlighter):
         def __init__(self, parent):
@@ -254,27 +399,26 @@ class WZSPI_MainWindow(QMainWindow):
                         # Set the instructional template text
                         template_text = (
                                 "#Start by writing the BRWSD file name followed by a colon\n"
-                                "#Make sure your Audio Numbers start by pressing \"tab\" \n"
-                                "#The \"tab\" should be followed by a dash and the number, range of numbers, or all\n\n"
+                                "#Indent the Audio line followed by a dash, number, range of numbers, or all\n\n"
                                 "#Index_id:\n"
-                                "#\t- number\n\n"
+                                "#  - number\n\n"
                                 "#This will extract Audio 1 from Index_001.brwsd\n"
                                 "Index_001:\n"
-                                "\t- 1\n\n"
+                                "  - 1\n\n"
                                 "#This will extract Audio 1 and 7 from Index_002.brwsd\n"
                                 "Index_002:\n"
-                                "\t- 1\n"
-                                "\t- 7\n\n"
+                                "  - 1\n"
+                                "  - 7\n\n"
                                 "#This will extract Audio 1 through 7 from Index_003.brwsd\n"
                                 "Index_003:\n"
-                                "\t- 1 - 7\n\n"
+                                "  - 1 - 7\n\n"
                                 "#This will extract Audio 1 AND 3 through 7 from Index_004.brwsd\n"
                                 "Index_004:\n"
-                                "\t- 1\n"
-                                "\t- 3 - 7\n\n"
+                                "  - 1\n"
+                                "  - 3 - 7\n\n"
                                 "#This will extract ALL Audio RWAVs from Index_005.brwsd\n"
                                 "Index_005:\n"
-                                "\t- All\n\n"
+                                "  - All\n\n"
                                 "#These are just example instructions. You can delete anything you want"
                         )
 
@@ -386,6 +530,9 @@ class WZSPI_MainWindow(QMainWindow):
                 # Get the YAML content
                 content = self.ui.text_yaml_edit.toPlainText()
 
+                # Convert tabs to 2 spaces
+                content = content.replace("\t", "  ")
+
                 # Construct full path
                 save_path = os.path.join(self.working_directory, "Instructions", filename)
 
@@ -401,14 +548,39 @@ class WZSPI_MainWindow(QMainWindow):
                 except Exception as e:
                         QMessageBox.critical(self, "Save Failed", f"Could not save file:\n{e}")
                 self.ui.text_yaml_edit.setPlainText("")
-
+                self.setup_project()
 
         def create_brwsd(self):
+                extract_rwavs(self.working_directory, self.project_name)
                 setup_extraction(self.working_directory, self.project_name)
+                build_brwsd_from_unmodified_rwavs(self.working_directory, self.project_name)
                 print("Create BRWSD clicked")
 
+                # Show the report dialog using your new class
+                dialog = SuccessDialog(self.working_directory, self.project_name, self)
+                dialog.exec()
+
         def create_wzsound(self):
+                # Run RWAV extraction
+                extract_rwavs(self.working_directory, self.project_name)
                 print("Create WZSound clicked")
+
+                # Compare RWAVs
+                too_big_list, exact_match_list = check_modified_vs_unmodified(self.working_directory, self.project_name)
+                # Inside your function (e.g., create_wzsound)
+                progress_dialog = ProgressDialog(self)
+                progress_dialog.show()
+                QApplication.processEvents()  # 🛠️ forces the window to fully draw
+                progress_dialog.repaint()  # Force UI to draw immediately
+
+                # Call patch file creation
+                create_patch_file(self.working_directory, self.project_name, too_big_list, exact_match_list, progress_dialog.ui)
+                progress_dialog.close()
+
+
+                # Show the report dialog using your new class
+                dialog = ReportDialog(self.working_directory, self.project_name, too_big_list, exact_match_list, self)
+                dialog.exec()
 
         def setup_project(self):
                 print("Setting up project...")
@@ -461,11 +633,7 @@ class WZSPI_MainWindow(QMainWindow):
         def update_project_buttons_state(self):
                 is_enabled = bool(self.project_name)
 
-                self.ui.button_create_instructions.setEnabled(is_enabled)
-                self.ui.button_edit_instructions.setEnabled(is_enabled)
                 self.ui.button_move.setEnabled(is_enabled)
-                self.ui.button_cancel_changes.setEnabled(is_enabled)
-                self.ui.button_save_changes.setEnabled(is_enabled)
                 self.ui.button_create_brwsd.setEnabled(is_enabled)
                 self.ui.button_create_wzsound.setEnabled(is_enabled)
 

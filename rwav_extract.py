@@ -1,179 +1,228 @@
 import os
 import struct
 import yaml
+import time
+from collections import defaultdict
+import hashlib
 
-def read_project_instructions(filepath, folder_name):
-	# Build the path to instructions.yaml
-	instructions_path = os.path.join(filepath, "Projects", folder_name, "instructions.yaml")
-
-	# Check if the file exists
-	if not os.path.exists(instructions_path):
-		print(f"File not found: {instructions_path}")
-		return []
-
-	# Read and return the YAML content
-	try:
-		with open(instructions_path, "r", encoding="utf-8") as f:
-			data = yaml.safe_load(f)
-			return data if isinstance(data, list) else []
-	except Exception as e:
-		print(f"Error reading {instructions_path}: {e}")
-		return []
-
-
-def read_instructions_file(folder_path):
-    """Reads the Program_Instructions.txt file and parses the RWSD and RWAV extraction instructions."""
-    instructions_file = os.path.join(folder_path, "Program_Instructions.txt")
-    if not os.path.exists(instructions_file):
-        print(f"Instructions file {instructions_file} not found.")
-        return None
-    
-    with open(instructions_file, 'r') as file:
-        lines = file.readlines()
-    
-    instructions = {}
-    current_rwsd = None
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        if line.endswith(':'):
-            current_rwsd = line[:-1]
-            instructions[current_rwsd] = []
-        elif line == "All":
-            instructions[current_rwsd] = "All"
-        else:
-            if current_rwsd:
-                # Support ranges like "0 - 6"
-                if '-' in line:
-                    start, end = map(int, line.split('-'))
-                    instructions[current_rwsd].extend(range(start, end + 1))
-                else:
-                    instructions[current_rwsd].append(int(line))
-    
-    return instructions
-
-def gather_rwav_offsets(rwsd_file_data):
-    """Gathers the offsets of all RWAV files in the RWSD file."""
-    rwav_signature = b'RWAV'
-    rwav_offsets = []
-    offset = 0
-
-    while offset < len(rwsd_file_data):
-        pos = rwsd_file_data.find(rwav_signature, offset)
-        if pos == -1:
-            break
-        rwav_offsets.append(pos)
-        offset = pos + 4
-
-    return rwav_offsets
-
-def extract_rwav_files(rwsd_file_data, rwav_offsets, extract_all=False, rwav_indices=None):
-    """Extracts the specified RWAV files based on the instructions."""
-    extracted_files = []
-
-    if extract_all:
-        rwav_indices = range(len(rwav_offsets))
-
-    for index in rwav_indices:
-        if index < len(rwav_offsets):
-            start_offset = rwav_offsets[index]
-            end_offset = rwav_offsets[index + 1] if index + 1 < len(rwav_offsets) else len(rwsd_file_data)
-            rwav_data = rwsd_file_data[start_offset:end_offset]
-
-            extracted_files.append((index, rwav_data))
-        else:
-            print(f"RWAV index {index} out of range, skipping.")
-
-    return extracted_files
-
-def delete_existing_rwav_files(output_folder):
-    """Deletes all files that start with RWSD in the output folder."""
-    if os.path.exists(output_folder):
-        for file_name in os.listdir(output_folder):
-            if file_name.startswith("RWSD"):
-                file_path = os.path.join(output_folder, file_name)
-                os.remove(file_path)
-                print(f"Deleted old file: {file_path}")
-
-def save_rwav_files(output_folder, rwsd_file_number, rwav_files):
-    """Saves extracted RWAV files to disk without an extension."""
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    for index, rwav_data in rwav_files:
-        output_filename = os.path.join(output_folder, f"{rwsd_file_number}_Audio_{index}")
-        with open(output_filename, 'wb') as out_file:
-            out_file.write(rwav_data)
-        print(f"Extracted RWAV file: {output_filename}")
-
-def find_rwsd_file_by_prefix(folder_path, rwsd_file_prefix):
-    """Finds a file in the folder that starts with the given RWSD file prefix followed by an underscore."""
-    for file_name in os.listdir(folder_path):
-        if file_name.startswith(rwsd_file_prefix + "_") and file_name.endswith((".brwsd")):
-            return os.path.join(folder_path, file_name)
-    return None
-
-def process_rwsd_file(rwsd_file_path, rwav_instructions, extract_all):
-    """Processes a single RWSD file according to the instructions."""
-    with open(rwsd_file_path, 'rb') as f:
-        rwsd_data = f.read()
-
-    rwav_offsets = gather_rwav_offsets(rwsd_data)
-    print(f"Found {len(rwav_offsets)} RWAV files in {rwsd_file_path}.")
-
-    rwav_files = extract_rwav_files(rwsd_data, rwav_offsets, extract_all, rwav_instructions)
-    return rwav_files
-
-def delete_duplicate_rwav_files(output_folder):
-    """Deletes RWAV files that are duplicates (same size and byte-for-byte match)."""
-    files_by_size = {}
+def delete_duplicate_rwavs(output_folder):
+    """Deletes duplicate .rwav files based on exact byte match."""
+    seen = {}
     duplicates_to_delete = []
 
-    # Group files by size
     for filename in os.listdir(output_folder):
+        if not filename.endswith(".rwav"):
+            continue
         file_path = os.path.join(output_folder, filename)
-        file_size = os.path.getsize(file_path)
-        if file_size not in files_by_size:
-            files_by_size[file_size] = []
-        files_by_size[file_size].append(file_path)
 
-    # Check for duplicates by comparing file content
-    for file_list in files_by_size.values():
-        if len(file_list) > 1:
-            # Compare each file with all others in the same size group
-            for i in range(len(file_list)):
-                for j in range(i + 1, len(file_list)):
-                    if files_match(file_list[i], file_list[j]):
-                        duplicates_to_delete.append(file_list[j])
+        with open(file_path, 'rb') as f:
+            data = f.read()
+            hash_digest = hashlib.md5(data).hexdigest()
 
-    # Delete all duplicates except one
-    unique_files = set()
-    for duplicate in duplicates_to_delete:
-        if duplicate not in unique_files:
-            try:
-                os.remove(duplicate)
-                print(f"Deleted duplicate file: {duplicate}")
-            except FileNotFoundError:
-                print(f"File {duplicate} not found, possibly already deleted.")
-            unique_files.add(duplicate)
+            if hash_digest in seen:
+                duplicates_to_delete.append(file_path)
+                print(f"Marked duplicate: {filename} (same as {seen[hash_digest]})")
+            else:
+                seen[hash_digest] = filename
 
-def files_match(file1, file2):
-    """Checks if two files match byte-for-byte."""
-    with open(file1, 'rb') as f1, open(file2, 'rb') as f2:
-        return f1.read() == f2.read()
+    # All files are closed at this point and safe to delete
+    removed = 0
+    for file_path in duplicates_to_delete:
+        try:
+            os.remove(file_path)
+            print(f"Deleted duplicate: {os.path.basename(file_path)}")
+            removed += 1
+        except PermissionError:
+            print(f"Could not delete (locked): {os.path.basename(file_path)}")
+
+    if removed == 0:
+        print("No duplicates removed.")
+    else:
+        print(f"Removed {removed} duplicate RWAV files.")
+
+def parse_instruction_value(value):
+  if value == 'All':
+    return 'All'
+  if '-' in value:
+    start, end = map(int, value.split('-'))
+    return list(range(start, end + 1))
+  return [int(value)]
+
+def extract_rwav_from_instructions(working_directory, project_folder, instructions):
+  # Indexes folder path
+  index_folder = os.path.join(working_directory, "Indexes")
+
+  # Output folder
+  output_folder = os.path.join(working_directory, "Projects", project_folder, "UnmodifiedRwavs")
+  os.makedirs(output_folder, exist_ok=True)
+
+  # Delete all existing .rwav files
+  for f in os.listdir(output_folder):
+    if f.endswith(".rwav"):
+      os.remove(os.path.join(output_folder, f))
+
+  for index_key, rule_list in instructions.items():
+    index_number = index_key.split("_")[1].zfill(3)
+
+    # Match files like Index_015_001.brwsd
+    for file_name in os.listdir(index_folder):
+      if file_name.startswith(f"Index_{index_number}_") and file_name.endswith(".brwsd"):
+        full_path = os.path.join(index_folder, file_name)
+        with open(full_path, 'rb') as f:
+          data = f.read()
+
+        # Find all RWAV headers
+        rwav_offsets = []
+        pos = 0
+        while pos < len(data):
+          pos = data.find(b'RWAV', pos)
+          if pos == -1:
+            break
+          rwav_offsets.append(pos)
+          pos += 4
+
+        if not rwav_offsets:
+          continue
+
+        # Build list of audio numbers to extract
+        extract_indices = set()
+        for rule in rule_list:
+          if rule == 'All':
+            extract_indices = set(range(1, len(rwav_offsets) + 1))  # 1-based indexing
+            break
+          extract_indices.update(i + 1 for i in parse_instruction_value(rule))
+
+        for i, offset in enumerate(rwav_offsets):
+          audio_number = i + 1
+          if audio_number not in extract_indices:
+            continue
+
+          size_offset = offset + 8
+          if size_offset + 4 > len(data):
+            continue
+
+          rwav_size = struct.unpack(">I", data[size_offset:size_offset + 4])[0]
+          extracted_data = data[offset:offset + rwav_size]
+
+          # Save with audio_number - 1
+          out_filename = f"Audio_{index_number}_{str(audio_number - 1).zfill(3)}.rwav"
+          out_path = os.path.join(output_folder, out_filename)
+
+          with open(out_path, 'wb') as out_f:
+            out_f.write(extracted_data)
+
+          print(f"Extracted {out_filename}")
+
+def parse_range(value):
+    if isinstance(value, int):
+        return [value]
+    if isinstance(value, str):
+        if '-' in value:
+            start, end = map(int, value.split('-'))
+            return list(range(start, end + 1))
+        else:
+            return [int(value)]
+    return []
+
+def compress_range(nums):
+    if 'All' in nums:
+        return ['All']
+    nums = sorted(set(nums))
+    ranges = []
+    start = end = nums[0]
+
+    for n in nums[1:]:
+        if n == end + 1:
+            end = n
+        else:
+            if start == end:
+                ranges.append(str(start))
+            else:
+                ranges.append(f"{start} - {end}")
+            start = end = n
+
+    # Append last
+    if start == end:
+        ranges.append(str(start))
+    else:
+        ranges.append(f"{start} - {end}")
+
+    return ranges
+
+def sanitize_yaml_tabs(path):
+    with open(path, 'r') as f:
+        lines = f.readlines()
+
+    # Replace tabs with 4 spaces
+    lines = [line.replace('\t', '    ') for line in lines]
+
+    with open(path, 'w') as f:
+        f.writelines(lines)
+
+
+def merge_yaml_rules(filepath, filenames):
+    merged = defaultdict(set)
+
+    for raw_name in filenames:
+        # Convert "Map Rules 1" → "Map_Rules_1.yaml"
+        clean_name = raw_name.replace(" ", "_") + ".yaml"
+        full_path = os.path.join(filepath, "Instructions", clean_name)
+
+        if not os.path.exists(full_path):
+            print(f"Warning: {clean_name} not found at {full_path}")
+            continue
+
+        sanitize_yaml_tabs(full_path)
+        with open(full_path, 'r') as f:
+            data = yaml.safe_load(f) or {}
+
+        for key, values in data.items():
+            if 'All' in values:
+                merged[key] = {'All'}
+            elif 'All' not in merged[key]:
+                for v in values:
+                    merged[key].update(parse_range(v))
+
+    # Compress into ranges
+    final_merged = {}
+    for key, values in merged.items():
+        final_merged[key] = compress_range(values)
+
+    # Sort Index_# keys by number
+    final_sorted = dict(sorted(
+        final_merged.items(),
+        key=lambda x: int(x[0].split('_')[1])
+    ))
+    return final_sorted
+
+
+def read_project_instructions(filepath, folder_name):
+    # Build the path to instructions.yaml
+    instructions_path = os.path.join(filepath, "Projects", folder_name, "instructions.yaml")
+
+    # Check if the file exists
+    if not os.path.exists(instructions_path):
+        print(f"File not found: {instructions_path}")
+        return []
+
+    # Read and return the YAML content
+    try:
+        with open(instructions_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+            return data if isinstance(data, list) else []
+    except Exception as e:
+        print(f"Error reading {instructions_path}: {e}")
+        return []
 
 def setup_extraction(working_directory, current_project):
-	# Read instructions from instructions.yaml file
-	entries = read_project_instructions(working_directory, current_project)
-	print(entries)
+    # Read instructions from instructions.yaml file
+    entries = read_project_instructions(working_directory, current_project)
+    print(entries)
+      
+    instructions = merge_yaml_rules(working_directory, entries)
+    print(instructions)
 
-	# Create test.txt at the working_directory
-	test_file_path = os.path.join(working_directory, "test.txt")
-	try:
-		with open(test_file_path, "w", encoding="utf-8") as f:
-			f.write("This is a test file.\n")
-			f.write(f"Loaded instructions: {entries}\n")
-		print(f"test.txt created at: {test_file_path}")
-	except Exception as e:
-		print(f"Failed to create test.txt: {e}")
+    extract_rwav_from_instructions(working_directory, current_project, instructions)
+
+    output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
+    delete_duplicate_rwavs(output_folder)
