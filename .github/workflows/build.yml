@@ -51,11 +51,12 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install pyinstaller pyyaml PySide6
+          pip install pyinstaller pyyaml PySide6 numpy pyaudio wave
 
       - name: Build Executable
         run: |
-          pyinstaller --onefile --hidden-import=yaml --add-data "Instructions;Instructions" --add-data "GUI;GUI" wzsound_main.py
+          pyinstaller --onefile --hidden-import=yaml --add-data "Instructions;Instructions" --add-data "GUI;GUI" --add-data "ProgramData;ProgramData" wzsound_main.py
+
 
       - name: Create Release Folder and Zip
         run: |
@@ -112,7 +113,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install pyinstaller pyyaml PySide6
+          pip install pyinstaller pyyaml PySide6 numpy pyaudio wave
 
       - name: Build Executable
         run: |
@@ -135,3 +136,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: wzsound_patcher_instructions.zip
+

@@ -1,0 +1,11 @@
+When creating the WZSound_Patch_Instructions when copying over the RWAVs I only should have ones that aren't too_big. The .patch file is correct
+When creating the WZSound_Patch_Instructions both the .patch file and rwavs need to exclude files that are the same
+Only enable buttons like Create Project BRWSD when you have the required files
+Retype all text if needed
+Rename all files/folder/variables to follow format if incorrect especially RWAV Extraction Instructions file names
+Implement Convert Project button with it's 3 options
+Rename generic "Instructions" as "RWAV Extraction Instructions" to be more distinct from WZSound Patcher Instructions
+Have "Load Project" dropdown be sorted by last loaded
+Add more RWAV Extraction Instructions
+Change UI of Progress Bar to be better
+Have some way to load your BRWSD or WZSound Patcher folders from the program
