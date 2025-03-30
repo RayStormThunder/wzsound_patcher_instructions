@@ -57,6 +57,15 @@ except ImportError:
         except ImportError as e:
                 raise ImportError("Could not import Ui_Dialog_Progress from ui_progress or GUI.ui_progress") from e
 
+# Try importing ui_convert from current directory or GUI folder
+try:
+        from ui_convert import Ui_Dialog_Convert
+except ImportError:
+        try:
+                from GUI.ui_convert import Ui_Dialog_Convert
+        except ImportError as e:
+                raise ImportError("Could not import Ui_Dialog_Convert from ui_convert or GUI.ui_convert") from e
+
 try:
         from rwav_extract import setup_extraction
         print("imported rwav_extract")
@@ -84,6 +93,63 @@ try:
 except ImportError as e:
         print("failed to import patch_creator")
         pass
+
+try:
+        from patch_wzsound import apply_wzsound_patch
+        print("imported patch_wzsound")
+except ImportError as e:
+        print("failed to import patch_wzsound")
+        pass
+
+try:
+        from play_audio import play_pcm_audio
+        print("imported play_audio")
+except ImportError as e:
+        print("failed to import play_audio")
+        pass
+
+class ConvertDialog(QDialog):
+        def __init__(self, working_directory, project_name, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog_Convert()
+                self.ui.setupUi(self)
+
+                self.working_directory = working_directory
+                self.project_name = project_name
+                print(f"ConvertDialog received project name: {self.project_name}")
+
+                # Disable buttons if project_name is empty
+                if not self.project_name:
+                        self.ui.pushButton_3.setEnabled(False)
+                        self.ui.pushButton_4.setEnabled(False)
+
+                # Connect pushButton_3 to apply_wzsound_patch
+                self.ui.pushButton_3.clicked.connect(self.run_patch)
+
+        def run_patch(self):
+            apply_wzsound_patch(self.working_directory, self.project_name)
+            self.close()
+            self.show_confirmation()
+
+        def show_confirmation(self):
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setWindowTitle("WZSound Patch Applied")
+            msg_box.setText("Successfully applied WZSound patch.")
+
+            open_button = msg_box.addButton("Open WZSound Location", QMessageBox.AcceptRole)
+            close_button = msg_box.addButton("Close", QMessageBox.RejectRole)
+
+            msg_box.exec()
+
+            if msg_box.clickedButton() == open_button:
+                wzsound_folder = os.path.join(self.working_directory, "Projects", self.project_name, "WZSound")
+                if os.path.exists(wzsound_folder):
+                    subprocess.Popen(f'explorer "{wzsound_folder}"')  # Windows only
+                else:
+                    QMessageBox.warning(self, "Folder Not Found", f"Folder does not exist:\n{wzsound_folder}")
+
+
 
 class ProgressDialog(QDialog):
         cancelled = Signal()  # Custom signal emitted if the window is closed by user
@@ -282,6 +348,7 @@ class WZSPI_MainWindow(QMainWindow):
                 self.ui.button_save_changes.clicked.connect(self.save_changes)
                 self.ui.button_create_brwsd.clicked.connect(self.create_brwsd)
                 self.ui.button_create_wzsound.clicked.connect(self.create_wzsound)
+                self.ui.pushButton.clicked.connect(self.play_sound)
 
                 self.ui.list_options.itemSelectionChanged.connect(lambda: self.ui.list_project.clearSelection())
                 self.ui.list_project.itemSelectionChanged.connect(lambda: self.ui.list_options.clearSelection())
@@ -322,6 +389,9 @@ class WZSPI_MainWindow(QMainWindow):
 
         def convert_project(self):
                 print("Convert Project clicked")
+                self.convert_window = ConvertDialog(self.working_directory, self.project_name, self)
+                self.convert_window.exec()  # Use .show() if you want it non-modal
+
 
         def load_project(self):
                 print("Load Project clicked")
@@ -652,6 +722,17 @@ class WZSPI_MainWindow(QMainWindow):
                 self.ui.button_move.setEnabled(is_enabled)
                 self.ui.button_create_brwsd.setEnabled(is_enabled)
                 self.ui.button_create_wzsound.setEnabled(is_enabled)
+
+        def play_sound(self):
+                filepath, _ = QFileDialog.getOpenFileName(
+                        parent=None,
+                        caption="Select a RWAV file",
+                        filter="RWAV Files (*.rwav);;All Files (*)"
+                )
+
+                if filepath:
+                        # Call the audio player assuming mono 32000Hz
+                        play_pcm_audio(filepath)
 
 
 

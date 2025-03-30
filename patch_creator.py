@@ -13,7 +13,7 @@ def create_patch_file(working_directory, project_name, too_big_list, exact_match
     unmod_folder = os.path.join(working_directory, "Projects", project_name, "UnmodifiedRwavs")
     mod_folder = os.path.join(working_directory, "Projects", project_name, "ModifiedRwavs")
     wzsound_path = os.path.join(working_directory, "ProgramData", "WZSound.brsar")
-    output_folder = os.path.join(working_directory, "Releases", project_name, "WZSound_Patch_Instructions")
+    output_folder = os.path.join(working_directory, "Releases", project_name, "WZSoundPatchInstructions")
     output_file = os.path.join(output_folder, "wzsound_instructions.patch")
 
     if not os.path.exists(wzsound_path):
@@ -55,8 +55,6 @@ def create_patch_file(working_directory, project_name, too_big_list, exact_match
             progress_ui.label.setText(f"Processing {filename}")
             percent = int((files_done / files_total) * 100)
             progress_ui.progressBar.setValue(percent)
-
-            from PySide6.QtWidgets import QApplication
             QApplication.processEvents()
 
     instructions.sort(key=lambda x: int(x[0], 16))
