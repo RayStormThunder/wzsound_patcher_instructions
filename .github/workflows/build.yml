@@ -122,7 +122,7 @@ jobs:
         run: |
           mkdir -p release
           cp dist/wzsound_main release/
-          zip wzsound_patcher_instructions.zip release\wzsound_main
+          # zip wzsound_patcher_instructions.zip release/wzsound_main
 
       - name: Upload ZIP as Artifact
         uses: actions/upload-artifact@v4
