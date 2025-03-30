@@ -1,2 +1,2 @@
-VERSION = "" 
-COMMIT_ID = "28d1020" 
+VERSION = "v0.0.0" 
+COMMIT_ID = "22d2238" 

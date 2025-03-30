@@ -7,7 +7,6 @@ info.txt
 
 # Ignore the "test" folder
 GUI/Test
-
 # Ignore Python compiled files
 __pycache__/
 *.pyc
@@ -16,7 +15,6 @@ __pycache__/
 
 # Ignore .brsar
 *.brsar
-
 # Ignore PyInstaller build files
 dist/
 build/
