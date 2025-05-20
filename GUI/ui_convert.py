@@ -166,7 +166,9 @@ class Ui_Dialog_Convert(object):
         self.label.setText(QCoreApplication.translate("Dialog_Convert", u"Pick one of the following options", None))
         self.label_2.setText(QCoreApplication.translate("Dialog_Convert", u"Convert Modified WZSound to Project", None))
         self.label_5.setText(QCoreApplication.translate("Dialog_Convert", u"This button takes a WZSound that has already been edited and converts it into a Project. This will create a single instruction file for exporting the correct RWAV files, a BRWSD project, and a WZSound Patch Instructions folder", None))
+
         self.ConvertModified.setText(QCoreApplication.translate("Dialog_Convert", u"Convert WZSound to Project", None))
+
         self.label_3.setText(QCoreApplication.translate("Dialog_Convert", u"Patch to WZSound using Instructions", None))
         self.label_6.setText(QCoreApplication.translate("Dialog_Convert", u"This button will use this project's patch instructions to patch a WZSound, instead of having SSRando do it. Useful when working outside of rando. Can also be used in the following option if you want to convert it to a Switch WZSound", None))
         self.pushButton_3.setText(QCoreApplication.translate("Dialog_Convert", u"Patch to WZSound", None))

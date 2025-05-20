@@ -8,6 +8,7 @@ import yaml
 import shutil
 import subprocess
 
+
 from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton, QVBoxLayout, QLineEdit, QLabel
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
 from PySide6.QtCore import QTimer, QStringListModel, Signal
@@ -67,13 +68,16 @@ except ImportError:
                 raise ImportError("Could not import Ui_Dialog_Convert from ui_convert or GUI.ui_convert") from e
 
 try:
+
         from rwav_extract import setup_extraction, setup_extraction_converted, setup_extraction_HD
+
         print("imported rwav_extract")
 except ImportError as e:
         print("failed to import rwav_extract")
         pass
 
 try:
+
         from rwar_extract import extract_rwar_files
         print("imported rwar_extract")
 except ImportError as e:
@@ -81,6 +85,7 @@ except ImportError as e:
         pass
 
 try:
+
         from brwsd_creator import build_brwsd_from_unmodified_rwavs
         print("imported brwsd_creator")
 except ImportError as e:
@@ -107,6 +112,7 @@ try:
 except ImportError as e:
         print("failed to import patch_wzsound")
         pass
+
 
 def extract_differences_and_create_instruction(
     modified_folder, original_folder, output_directory, instruction_filename
@@ -210,6 +216,7 @@ def format_name(name: str) -> str:
         parts = name.replace(" ", "_").split("_")
         formatted_parts = [part.capitalize() for part in parts if part]
         return "_".join(formatted_parts)
+
 
 
 class ConvertDialog(QDialog):
@@ -467,8 +474,6 @@ class ConvertDialog(QDialog):
 
                 print("[SUCCESS] WZSound.brsar HD patching complete.")
 
-
-
         def run_patch(self):
             apply_wzsound_patch(self.working_directory, self.project_name)
             self.close()
@@ -697,6 +702,7 @@ class YamlHighlighter(QSyntaxHighlighter):
 class WZSPI_MainWindow(QMainWindow):
         def __init__(self, working_directory, parent=None):
                 super().__init__(parent)
+
                 self.working_directory = working_directory  # Store for later use
                 self.ui = Ui_WZSPI_MainWindow()
                 self.ui.setupUi(self)
@@ -725,6 +731,7 @@ class WZSPI_MainWindow(QMainWindow):
                 self.ui.button_save_changes.clicked.connect(self.save_changes)
                 self.ui.button_create_brwsd.clicked.connect(self.create_brwsd)
                 self.ui.button_create_wzsound.clicked.connect(self.create_wzsound)
+
 
                 self.ui.list_options.itemSelectionChanged.connect(lambda: self.ui.list_project.clearSelection())
                 self.ui.list_project.itemSelectionChanged.connect(lambda: self.ui.list_options.clearSelection())
