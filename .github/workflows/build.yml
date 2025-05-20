@@ -113,7 +113,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install pyinstaller pyyaml PySide6 numpy pyaudio wave
+          pip install pyinstaller pyyaml PySide6 numpy
 
       - name: Build Executable
         run: |
