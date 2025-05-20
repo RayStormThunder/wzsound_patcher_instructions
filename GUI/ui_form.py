@@ -48,11 +48,6 @@ class Ui_WZSPI_MainWindow(object):
 
         self.horizontal_1_project_buttons.addWidget(self.button_convert_project)
 
-        self.pushButton = QPushButton(self.centralwidget)
-        self.pushButton.setObjectName(u"pushButton")
-
-        self.horizontal_1_project_buttons.addWidget(self.pushButton)
-
 
         self.vertical_main.addLayout(self.horizontal_1_project_buttons)
 
@@ -317,7 +312,6 @@ class Ui_WZSPI_MainWindow(object):
         self.button_create_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create Project", None))
         self.button_load_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Load Project", None))
         self.button_convert_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Convert Project", None))
-        self.pushButton.setText(QCoreApplication.translate("WZSPI_MainWindow", u"PushButton", None))
         self.button_create_instructions.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create Instructions", None))
         self.button_edit_instructions.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Edit Instructions", None))
         self.label_options.setText(QCoreApplication.translate("WZSPI_MainWindow", u"All Options", None))
@@ -351,4 +345,3 @@ class Ui_WZSPI_MainWindow(object):
         self.button_create_wzsound.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create WZSound Patcher Instructions", None))
         self.label_description_wzsound.setText(QCoreApplication.translate("WZSPI_MainWindow", u"After you have edited every RWAV file you want. You can click the \"Create WZSound Patcher Instructions\" button. This will take the data from your project and make a folder called \"WZedit\" inside of \"Releases/{Project_Name}.\" It will contain all of your RWAV files and an instruction file that will tell SSRando how to edit the WZSound with the RWAV files provided.", None))
     # retranslateUi
-

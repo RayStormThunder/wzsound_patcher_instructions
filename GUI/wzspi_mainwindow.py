@@ -2,11 +2,14 @@
 import sys
 import os
 import re
+import struct
+import hashlib
 import yaml
 import shutil
 import subprocess
 
-from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton
+
+from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton, QVBoxLayout, QLineEdit, QLabel
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
 from PySide6.QtCore import QTimer, QStringListModel, Signal
 
@@ -65,13 +68,24 @@ except ImportError:
                 raise ImportError("Could not import Ui_Dialog_Convert from ui_convert or GUI.ui_convert") from e
 
 try:
-        from rwav_extract import setup_extraction
+
+        from rwav_extract import setup_extraction, setup_extraction_converted, setup_extraction_HD
+
         print("imported rwav_extract")
 except ImportError as e:
         print("failed to import rwav_extract")
         pass
 
 try:
+
+        from rwar_extract import extract_rwar_files
+        print("imported rwar_extract")
+except ImportError as e:
+        print("failed to import rwar_extract")
+        pass
+
+try:
+
         from brwsd_creator import build_brwsd_from_unmodified_rwavs
         print("imported brwsd_creator")
 except ImportError as e:
@@ -99,12 +113,111 @@ except ImportError as e:
         print("failed to import patch_wzsound")
         pass
 
-try:
-        from play_audio import play_pcm_audio
-        print("imported play_audio")
-except ImportError as e:
-        print("failed to import play_audio")
-        pass
+
+def extract_differences_and_create_instruction(
+    modified_folder, original_folder, output_directory, instruction_filename
+):
+        def read_rwav_values(file_path):
+                with open(file_path, "rb") as f:
+                        data = f.read()
+
+                index = 0
+                values = []
+
+                while index < len(data):
+                        index = data.find(b"RWAV", index)
+                        if index == -1 or index + 12 > len(data):
+                                break
+
+                        # Read the 4 bytes at offset 0x8 from RWAV
+                        value = data[index + 8:index + 12]
+                        values.append(value)
+
+                        # Skip this RWAV chunk (move forward by 12 at least)
+                        index += 12
+
+                return values
+
+        def compare_rwav_values(modified_path, original_path):
+                modified_values = read_rwav_values(modified_path)
+                original_values = read_rwav_values(original_path)
+
+                diffs = []
+                for i, (m, o) in enumerate(zip(modified_values, original_values)):
+                        if m != o:
+                                diffs.append(i)
+
+                return diffs
+
+        instruction_data = {}
+
+        for file_name in os.listdir(modified_folder):
+                if not file_name.endswith(".brwsd"):
+                        continue
+
+                original_path = os.path.join(original_folder, file_name)
+                modified_path = os.path.join(modified_folder, file_name)
+
+                if not os.path.exists(original_path):
+                        continue
+
+                with open(original_path, "rb") as f1, open(modified_path, "rb") as f2:
+                        if f1.read() == f2.read():
+                                continue
+
+                diff_indices = compare_rwav_values(modified_path, original_path)
+                if not diff_indices:
+                        continue
+
+                # Format RWAV index ranges
+                grouped = []
+                start = prev = diff_indices[0]
+
+                for idx in diff_indices[1:]:
+                        if idx == prev + 1:
+                                prev = idx
+                        else:
+                                if start == prev:
+                                        grouped.append(start)
+                                else:
+                                        grouped.append(f"{start} - {prev}")
+                                start = prev = idx
+
+                if start == prev:
+                        grouped.append(start)
+                else:
+                        grouped.append(f"{start} - {prev}")
+
+                # Extract Index number like Index_025 from Index_025_621.brwsd
+                base_name = os.path.splitext(file_name)[0]
+                parts = base_name.split("_")
+                if len(parts) >= 2:
+                        key = f"{parts[0]}_{parts[1]}"
+                        if key not in instruction_data:
+                                instruction_data[key] = []
+                        instruction_data[key].extend(grouped)
+
+        # Write YAML output with clean formatting (no quotes on integers)
+        os.makedirs(output_directory, exist_ok=True)
+        output_path = os.path.join(output_directory, instruction_filename)
+
+        with open(output_path, "w") as f:
+                yaml.dump(
+                        instruction_data,
+                        f,
+                        sort_keys=True,
+                        default_flow_style=False,
+                        allow_unicode=True,
+                )
+
+        return output_path
+
+def format_name(name: str) -> str:
+        parts = name.replace(" ", "_").split("_")
+        formatted_parts = [part.capitalize() for part in parts if part]
+        return "_".join(formatted_parts)
+
+
 
 class ConvertDialog(QDialog):
         def __init__(self, working_directory, project_name, parent=None):
@@ -116,13 +229,250 @@ class ConvertDialog(QDialog):
                 self.project_name = project_name
                 print(f"ConvertDialog received project name: {self.project_name}")
 
-                # Disable buttons if project_name is empty
-                if not self.project_name:
+                # Enable pushButton_4 only if project_name is valid and ModifiedRwavs folder exists
+                if self.project_name:
+                        modified_rwavs_path = os.path.join(
+                                self.working_directory, "Projects", self.project_name, "ModifiedRwavs"
+                        )
+                        self.ui.pushButton_4.setEnabled(os.path.isdir(modified_rwavs_path))
+                else:
                         self.ui.pushButton_3.setEnabled(False)
                         self.ui.pushButton_4.setEnabled(False)
 
-                # Connect pushButton_3 to apply_wzsound_patch
+
+                # Connect pushButton_3 to run_patch
                 self.ui.pushButton_3.clicked.connect(self.run_patch)
+
+                # Connect pushButton_4 to the custom logic
+                self.ui.pushButton_4.clicked.connect(self.handle_pushbutton_4_click)
+
+                self.ui.ConvertModified.clicked.connect(self.open_modified_input_dialog)
+
+        def convert_modified(self, project_name, instruction_file):
+                project_name = format_name(project_name)
+                project_dir = os.path.join(self.working_directory, "Projects", project_name)
+                instruction_file = format_name(instruction_file)
+
+                # Step 1: Create the folder if it doesn't exist
+                try:
+                        os.makedirs(project_dir, exist_ok=True)
+                        print(f"[INFO] Created or found existing folder: {project_dir}")
+                except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to create project folder:\n{e}")
+                        return
+
+                # Step 2: Ask user to provide the modified WZSound.brsar
+                file_path, _ = QFileDialog.getOpenFileName(self, "Select Modified WZSound.brsar", "", "BRSAR Files (*.brsar)")
+                if not file_path:
+                        QMessageBox.information(self, "Cancelled", "No file selected.")
+                        return
+
+                # Step 3: Copy the selected file into the project folder
+                try:
+                        modified_dir = os.path.join(project_dir, "ModifiedWZSound")
+                        os.makedirs(modified_dir, exist_ok=True)
+
+                        # Copy to ModifiedWZSound/WZSound.brsar
+                        dest_path = os.path.join(modified_dir, "WZSound.brsar")
+                        shutil.copy(file_path, dest_path)
+                        print(f"[INFO] Copied modified WZSound to: {dest_path}")
+
+                        target_folder = os.path.join("Projects", project_name, "Indexes")
+                        extract_rwar_files(dest_path, self.working_directory, target_folder=target_folder)
+                except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to copy file:\n{e}")
+                        return
+
+                # Step 4: You can store the instruction file name, or continue processing here
+                print(f"[SUCCESS] Project setup complete for '{project_name}' with instruction file '{instruction_file}'")
+
+                # Step 5: Compare Indexes and generate instruction YAML
+                modified_indexes = os.path.join(project_dir, "Indexes")
+                original_indexes = os.path.join(self.working_directory, "Indexes")
+                instruction_output_dir = os.path.join(self.working_directory, "Instructions")
+
+                instruction_path = extract_differences_and_create_instruction(
+                        modified_folder=modified_indexes,
+                        original_folder=original_indexes,
+                        output_directory=instruction_output_dir,
+                        instruction_filename=f"{instruction_file}.yaml"
+                )
+
+                print(f"[SUCCESS] Instruction file created at: {instruction_path}")
+
+                # Step 6: Write 'instructions.yaml' in the project folder
+                instruction_list_path = os.path.join(project_dir, "instructions.yaml")
+                instruction_name_without_ext = instruction_file  # because we never added .yaml to this variable
+
+                try:
+                        with open(instruction_list_path, "w") as f:
+                                yaml.dump([instruction_name_without_ext], f, default_flow_style=False)
+                        print(f"[INFO] Wrote instructions.yaml to: {instruction_list_path}")
+                except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to write instructions.yaml:\n{e}")
+                        return
+
+                # Step 7: Generate converted BRWSD using final project name
+                self.create_brwsd_converted(project_name)
+
+        def create_brwsd_converted(self, project_name):
+                extract_rwavs(self.working_directory, project_name)
+                setup_extraction(self.working_directory, project_name)
+                setup_extraction_converted(self.working_directory, project_name)
+                build_brwsd_from_unmodified_rwavs(self.working_directory, project_name)
+                print("Create BRWSD clicked")
+
+                # Show the report dialog
+                dialog = SuccessDialog(self.working_directory, project_name, self)
+                dialog.exec()
+
+        def open_modified_input_dialog(self):
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Convert Modified")
+
+                layout = QVBoxLayout(dialog)
+
+                project_input = QLineEdit()
+                project_input.setPlaceholderText("Enter project name")
+                instruction_input = QLineEdit()
+                instruction_input.setPlaceholderText("Enter instruction file name")
+
+                submit_button = QPushButton("Submit")
+
+                layout.addWidget(QLabel("Project Name:"))
+                layout.addWidget(project_input)
+                layout.addWidget(QLabel("Instruction File:"))
+                layout.addWidget(instruction_input)
+                layout.addWidget(QLabel("Submit an SD WZSound file that IS MODIFIED with sound effects already replaced in it"))
+                layout.addWidget(submit_button)
+
+                def on_submit():
+                        project_name = project_input.text().strip()
+                        instruction_file = instruction_input.text().strip()
+
+                        if not project_name or not instruction_file:
+                                QMessageBox.warning(dialog, "Missing Input", "Both fields must be filled.")
+                                return
+
+                        dialog.accept()
+
+                        # Call your logic here using project_name and instruction_file
+                        print(f"Submitted project: {project_name}, instruction file: {instruction_file}")
+                        self.convert_modified(project_name, instruction_file)
+
+                submit_button.clicked.connect(on_submit)
+
+                dialog.exec()
+
+
+        def handle_pushbutton_4_click(self):
+                indexes_hd_path = os.path.join(self.working_directory, "IndexesHD")
+                if not os.path.exists(indexes_hd_path):
+                        dialog = MissingBrsarHDDialog(self.working_directory, self)
+                        if dialog.exec() != QDialog.Accepted:
+                                print("User cancelled HD WZSound selection.")
+                                return  # Skip rest if user cancels
+                        else:
+                                print("HD WZSound provided.")
+
+                # Proceed with the actual HD patch logic
+                self.run_hd_patch()
+
+        def run_hd_patch(self):
+                # Replace with your actual logic
+                print("Running HD patch logic...")
+                project_name = self.project_name
+                setup_extraction_HD(self.working_directory, project_name)
+                self.patch_hd_wzsound(self.working_directory, self.project_name)
+
+
+        def patch_hd_wzsound(self, working_directory, project_name):
+                def find_all_occurrences(data: bytes, pattern: bytes) -> list:
+                        indices = []
+                        start = 0
+                        while True:
+                                index = data.find(pattern, start)
+                                if index == -1:
+                                        break
+                                indices.append(index)
+                                start = index + 1
+                        return indices
+
+                project_folder = os.path.join(working_directory, "Projects", project_name)
+
+                # Step 1: Create "WZSoundHD" folder inside the project folder
+                hd_output_folder = os.path.join(project_folder, "WZSoundHD")
+                os.makedirs(hd_output_folder, exist_ok=True)
+
+                # Step 2: Copy original HD WZSound.brsar into that folder
+                source_brsar = os.path.join(working_directory, "ProgramData", "WZSoundHD.brsar")
+                patched_brsar = os.path.join(hd_output_folder, "WZSound.brsar")
+                shutil.copy(source_brsar, patched_brsar)
+                print(f"[INFO] Copied WZSoundHD.brsar to {patched_brsar}")
+
+                # Step 3: Patch RWAVs
+                unmodified_folder = os.path.join(project_folder, "UnmodifiedRwavsHD")
+                modified_folder = os.path.join(project_folder, "ModifiedRwavs")
+
+                # Load file into memory
+                with open(patched_brsar, "rb") as f:
+                        data = bytearray(f.read())
+
+                # Prepare list of RWAVs to patch
+                rwav_files = [f for f in os.listdir(unmodified_folder) if f.endswith(".rwav")]
+                total = len(rwav_files)
+                processed = 0
+
+                # Show progress dialog
+                progress_dialog = ProgressDialog(self)
+                progress_dialog.setWindowTitle("Patching RWAV Files...")
+                progress_dialog.ui.progressBar.setMaximum(total)
+                progress_dialog.show()
+                QApplication.processEvents()
+
+                for filename in rwav_files:
+                        processed += 1
+
+                        if hasattr(progress_dialog.ui, "label_status"):
+                                progress_dialog.ui.label_status.setText(f"Patching {processed} of {total}: {filename}")
+                        if hasattr(progress_dialog.ui, "progressBar"):
+                                progress_dialog.ui.progressBar.setValue(processed)
+                        QApplication.processEvents()
+
+                        unmod_path = os.path.join(unmodified_folder, filename)
+                        mod_path = os.path.join(modified_folder, filename)
+
+                        if not os.path.exists(mod_path):
+                                continue  # No modified version exists
+
+                        with open(unmod_path, "rb") as f_unmod:
+                                unmod_data = f_unmod.read()
+                        with open(mod_path, "rb") as f_mod:
+                                mod_data = f_mod.read()
+
+                        if len(mod_data) > len(unmod_data):
+                                print(f"[SKIPPED] Modified RWAV '{filename}' is larger than original. Cannot safely replace.")
+                                continue
+
+                        occurrences = find_all_occurrences(data, unmod_data)
+
+                        if not occurrences:
+                                print(f"[WARNING] Could not find unmodified RWAV: {filename}")
+                                continue
+
+                        for index in occurrences:
+                                data[index:index + len(mod_data)] = mod_data
+                                remaining = len(unmod_data) - len(mod_data)
+                                data[index + len(mod_data):index + len(unmod_data)] = b'\x00' * remaining
+                                print(f"[PATCHED] Replaced RWAV: {filename} at offset {index}")
+
+                progress_dialog.close()
+
+                # Save patched file
+                with open(patched_brsar, "wb") as f:
+                        f.write(data)
+
+                print("[SUCCESS] WZSound.brsar HD patching complete.")
 
         def run_patch(self):
             apply_wzsound_patch(self.working_directory, self.project_name)
@@ -184,6 +534,40 @@ class MissingBrsarDialog(QDialog):
                                 self.accept()
                         except Exception as e:
                                 QMessageBox.critical(self, "Error", f"Failed to copy file:\n{e}")
+
+class MissingBrsarHDDialog(QDialog):
+        def __init__(self, program_data_dir, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog()
+                self.ui.setupUi(self)
+
+                self.program_data_dir = os.path.join(program_data_dir, 'ProgramData')
+                self.hd_wzsound_path = os.path.join(self.program_data_dir, 'WZSoundHD.brsar')
+
+                self.ui.button_error.setText("Browse HD File")
+                self.ui.label_error.setText("Please select the HD version of WZSound.brsar")
+
+                self.ui.button_error.clicked.connect(self.browse_file)
+
+        def browse_file(self):
+                file_path, _ = QFileDialog.getOpenFileName(self, "Select HD WZSound.brsar", "", "BRSAR Files (*.brsar)")
+                if file_path:
+                        try:
+                                if not os.path.exists(self.program_data_dir):
+                                        os.makedirs(self.program_data_dir)
+
+                                shutil.copy(file_path, self.hd_wzsound_path)
+                                print(f"Copied HD WZSound.brsar to: {self.hd_wzsound_path}")
+
+                                # Now call the extractor
+                                working_directory = os.path.dirname(sys.executable)
+                                extract_rwar_files(self.hd_wzsound_path, working_directory, target_folder="IndexesHD")
+
+                                self.accept()
+                        except Exception as e:
+                                QMessageBox.critical(self, "Error", f"Failed to copy or extract file:\n{e}")
+
+
 
 class ReportDialog(QDialog):
         def __init__(self, file_path, project_name, too_big_list, exact_match_list, parent=None):
@@ -318,6 +702,7 @@ class YamlHighlighter(QSyntaxHighlighter):
 class WZSPI_MainWindow(QMainWindow):
         def __init__(self, working_directory, parent=None):
                 super().__init__(parent)
+
                 self.working_directory = working_directory  # Store for later use
                 self.ui = Ui_WZSPI_MainWindow()
                 self.ui.setupUi(self)
@@ -346,7 +731,7 @@ class WZSPI_MainWindow(QMainWindow):
                 self.ui.button_save_changes.clicked.connect(self.save_changes)
                 self.ui.button_create_brwsd.clicked.connect(self.create_brwsd)
                 self.ui.button_create_wzsound.clicked.connect(self.create_wzsound)
-                self.ui.pushButton.clicked.connect(self.play_sound)
+
 
                 self.ui.list_options.itemSelectionChanged.connect(lambda: self.ui.list_project.clearSelection())
                 self.ui.list_project.itemSelectionChanged.connect(lambda: self.ui.list_options.clearSelection())
@@ -635,6 +1020,7 @@ class WZSPI_MainWindow(QMainWindow):
                 dialog = SuccessDialog(self.working_directory, self.project_name, self)
                 dialog.exec()
 
+
         def create_wzsound(self):
             extract_rwavs(self.working_directory, self.project_name)
             too_big_list, exact_match_list = check_modified_vs_unmodified(self.working_directory, self.project_name)
@@ -720,17 +1106,6 @@ class WZSPI_MainWindow(QMainWindow):
                 self.ui.button_move.setEnabled(is_enabled)
                 self.ui.button_create_brwsd.setEnabled(is_enabled)
                 self.ui.button_create_wzsound.setEnabled(is_enabled)
-
-        def play_sound(self):
-                filepath, _ = QFileDialog.getOpenFileName(
-                        parent=None,
-                        caption="Select a RWAV file",
-                        filter="RWAV Files (*.rwav);;All Files (*)"
-                )
-
-                if filepath:
-                        # Call the audio player assuming mono 32000Hz
-                        play_pcm_audio(filepath)
 
 if __name__ == "__main__":
         app = QApplication(sys.argv)

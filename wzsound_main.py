@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 from GUI.ui_form import Ui_WZSPI_MainWindow
 from rwar_extract import extract_rwar_files
 from rwav_extract import setup_extraction
-from play_audio import play_pcm_audio
+
 
 from GUI.wzspi_mainwindow import WZSPI_MainWindow, MissingBrsarDialog  # Assuming this is your main window class
 
