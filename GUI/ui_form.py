@@ -36,7 +36,6 @@ class Ui_WZSPI_MainWindow(object):
         self.button_create_project = QPushButton(self.centralwidget)
         self.button_create_project.setObjectName(u"button_create_project")
 
-
         self.horizontal_1_project_buttons.addWidget(self.button_create_project)
 
         self.button_load_project = QPushButton(self.centralwidget)
@@ -118,7 +117,6 @@ class Ui_WZSPI_MainWindow(object):
 
         self.horizontal_selector.addLayout(self.vertical_1_options_list)
 
-
         self.vertical_2_move = QVBoxLayout()
         self.vertical_2_move.setObjectName(u"vertical_2_move")
         self.button_move = QPushButton(self.frame_pick)
@@ -129,22 +127,7 @@ class Ui_WZSPI_MainWindow(object):
         sizePolicy1.setHeightForWidth(self.button_move.sizePolicy().hasHeightForWidth())
         self.button_move.setSizePolicy(sizePolicy1)
 
-
         self.vertical_2_move.addWidget(self.button_move)
-
-        self.horizontal_selector = QHBoxLayout()
-        self.horizontal_selector.setObjectName(u"horizontal_selector")
-        self.vertical_1_options_list = QVBoxLayout()
-        self.vertical_1_options_list.setObjectName(u"vertical_1_options_list")
-        self.frame_options = QFrame(self.frame_pick)
-        self.frame_options.setObjectName(u"frame_options")
-        self.frame_options.setFrameShape(QFrame.Shape.StyledPanel)
-        self.frame_options.setFrameShadow(QFrame.Shadow.Raised)
-        self.horizontalLayout_4 = QHBoxLayout(self.frame_options)
-        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
-        self.label_options = QLabel(self.frame_options)
-        self.label_options.setObjectName(u"label_options")
-        self.label_options.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
 
         self.horizontal_selector.addLayout(self.vertical_2_move)
@@ -166,12 +149,10 @@ class Ui_WZSPI_MainWindow(object):
 
         self.vertical_3_project_list.addWidget(self.frame_project)
 
-
         self.list_project = QListWidget(self.frame_pick)
         self.list_project.setObjectName(u"list_project")
         self.list_project.setAlternatingRowColors(True)
         self.list_project.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
-
 
         self.vertical_3_project_list.addWidget(self.list_project)
 
@@ -198,19 +179,6 @@ class Ui_WZSPI_MainWindow(object):
 
 
         self.verticalLayout_6.addLayout(self.vertical_description)
-
-
-        self.vertical_3_project_list = QVBoxLayout()
-        self.vertical_3_project_list.setObjectName(u"vertical_3_project_list")
-        self.frame_project = QFrame(self.frame_pick)
-        self.frame_project.setObjectName(u"frame_project")
-        self.frame_project.setFrameShape(QFrame.Shape.StyledPanel)
-        self.frame_project.setFrameShadow(QFrame.Shadow.Raised)
-        self.horizontalLayout_2 = QHBoxLayout(self.frame_project)
-        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.label_project = QLabel(self.frame_project)
-        self.label_project.setObjectName(u"label_project")
-        self.label_project.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
 
         self.vertical_pick.addWidget(self.frame_pick)
@@ -241,7 +209,6 @@ class Ui_WZSPI_MainWindow(object):
         self.button_cancel_changes = QPushButton(self.frame_edit)
         self.button_cancel_changes.setObjectName(u"button_cancel_changes")
 
-
         self.horizontal_changes_buttons.addWidget(self.button_cancel_changes)
 
 
@@ -260,9 +227,6 @@ class Ui_WZSPI_MainWindow(object):
         self.text_description_edit.setReadOnly(True)
 
         self.verticalLayout_12.addWidget(self.text_description_edit)
-
-
-        self.horizontalLayout_9.addLayout(self.vertical_edit)
 
 
         self.vertical_edit.addWidget(self.frame_edit)
@@ -348,7 +312,6 @@ class Ui_WZSPI_MainWindow(object):
         self.button_create_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create Project", None))
         self.button_load_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Load Project", None))
         self.button_convert_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Convert Project", None))
-
         self.button_create_instructions.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create Instructions", None))
         self.button_edit_instructions.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Edit Instructions", None))
         self.label_options.setText(QCoreApplication.translate("WZSPI_MainWindow", u"All Options", None))
@@ -382,4 +345,3 @@ class Ui_WZSPI_MainWindow(object):
         self.button_create_wzsound.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create WZSound Patcher Instructions", None))
         self.label_description_wzsound.setText(QCoreApplication.translate("WZSPI_MainWindow", u"After you have edited every RWAV file you want. You can click the \"Create WZSound Patcher Instructions\" button. This will take the data from your project and make a folder called \"WZedit\" inside of \"Releases/{Project_Name}.\" It will contain all of your RWAV files and an instruction file that will tell SSRando how to edit the WZSound with the RWAV files provided.", None))
     # retranslateUi
-
