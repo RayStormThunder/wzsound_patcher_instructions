@@ -48,20 +48,12 @@ def parse_instruction_value(value):
     return list(range(start, end + 1))
   return [int(value)]
 
-<<<<<<< HEAD
-=======
-
->>>>>>> c614fd41d2ea76a9c12c68e252abd5161018ce81
 def extract_rwav_from_instructions(working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavs"):
   # Indexes folder path
   index_folder = target_path
 
   # Output folder
   output_folder = os.path.join(working_directory, "Projects", project_folder, output)
-<<<<<<< HEAD
-=======
-
->>>>>>> c614fd41d2ea76a9c12c68e252abd5161018ce81
   os.makedirs(output_folder, exist_ok=True)
 
   # Delete all existing .rwav files
@@ -330,7 +322,3 @@ def setup_extraction_HD(working_directory, current_project):
 	# Step 5: Cleanup
 	output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavsHD")
 	delete_duplicate_rwavs(output_folder)
-<<<<<<< HEAD
-=======
-
->>>>>>> c614fd41d2ea76a9c12c68e252abd5161018ce81
