@@ -48,12 +48,12 @@ def parse_instruction_value(value):
     return list(range(start, end + 1))
   return [int(value)]
 
-def extract_rwav_from_instructions(working_directory, project_folder, instructions):
+def extract_rwav_from_instructions(working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavs"):
   # Indexes folder path
-  index_folder = os.path.join(working_directory, "Indexes")
+  index_folder = target_path
 
   # Output folder
-  output_folder = os.path.join(working_directory, "Projects", project_folder, "UnmodifiedRwavs")
+  output_folder = os.path.join(working_directory, "Projects", project_folder, output)
   os.makedirs(output_folder, exist_ok=True)
 
   # Delete all existing .rwav files
@@ -221,8 +221,104 @@ def setup_extraction(working_directory, current_project):
       
     instructions = merge_yaml_rules(working_directory, entries)
     print(instructions)
+    
+    index_folder = os.path.join(working_directory, "Indexes")
 
-    extract_rwav_from_instructions(working_directory, current_project, instructions)
+    extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder)
 
     output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
     delete_duplicate_rwavs(output_folder)
+
+def setup_extraction_converted(working_directory, current_project):
+    # Read instructions from instructions.yaml file
+    entries = read_project_instructions(working_directory, current_project)
+    print(entries)
+      
+    instructions = merge_yaml_rules(working_directory, entries)
+    print(instructions)
+
+    index_folder = os.path.join(working_directory, "Projects", current_project, "Indexes")
+
+    extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder, "ModifiedRwavs")
+
+def adjust_instructions_for_extras(instructions: dict) -> dict:
+	# Map of Index_XYZ to list of extra RWAVs to remove
+	extras = {
+		"Index_013": [158, 192],
+		"Index_025": [159, 193],
+	}
+
+	adjusted = {}
+
+	for key, ranges in instructions.items():
+		extra_list = extras.get(key, [])
+		if not extra_list:
+			adjusted[key] = ranges
+			continue
+
+		flattened = []
+
+		# Flatten all ranges into a list of integers
+		for r in ranges:
+			if isinstance(r, int):
+				flattened.append(r)
+			elif isinstance(r, str) and " - " in r:
+				start, end = map(int, r.split(" - "))
+				flattened.extend(range(start, end + 1))
+			else:
+				flattened.append(int(r))
+
+		flattened = sorted(flattened)
+		new_values = []
+
+		for i, val in enumerate(flattened):
+			# Skip if val is one of the extras
+			if val in extra_list:
+				continue
+
+			# Count how many extras came before this value
+			offset = sum(1 for e in extra_list if e <= val)
+			new_values.append(val + offset)
+
+		# Re-group into ranges
+		grouped = []
+		if new_values:
+			start = prev = new_values[0]
+			for val in new_values[1:]:
+				if val == prev + 1:
+					prev = val
+				else:
+					if start == prev:
+						grouped.append(start)
+					else:
+						grouped.append(f"{start} - {prev}")
+					start = prev = val
+			# Add final group
+			if start == prev:
+				grouped.append(start)
+			else:
+				grouped.append(f"{start} - {prev}")
+
+		adjusted[key] = grouped
+
+	return adjusted
+
+def setup_extraction_HD(working_directory, current_project):
+	# Step 1: Read instructions
+	entries = read_project_instructions(working_directory, current_project)
+	print(entries)
+
+	# Step 2: Merge YAML rules
+	instructions = merge_yaml_rules(working_directory, entries)
+	print(instructions)
+
+	# Step 3: Adjust instructions for known RWAV offsets
+	instructions = adjust_instructions_for_extras(instructions)
+
+	# Step 4: Extract based on fixed instructions
+	index_folder = os.path.join(working_directory, "IndexesHD")
+	extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder, "UnmodifiedRwavsHD")
+
+	# Step 5: Cleanup
+	output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavsHD")
+	delete_duplicate_rwavs(output_folder)

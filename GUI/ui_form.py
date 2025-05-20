@@ -48,11 +48,6 @@ class Ui_WZSPI_MainWindow(object):
 
         self.horizontal_1_project_buttons.addWidget(self.button_convert_project)
 
-        self.pushButton = QPushButton(self.centralwidget)
-        self.pushButton.setObjectName(u"pushButton")
-
-        self.horizontal_1_project_buttons.addWidget(self.pushButton)
-
 
         self.vertical_main.addLayout(self.horizontal_1_project_buttons)
 
@@ -317,7 +312,6 @@ class Ui_WZSPI_MainWindow(object):
         self.button_create_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create Project", None))
         self.button_load_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Load Project", None))
         self.button_convert_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Convert Project", None))
-        self.pushButton.setText(QCoreApplication.translate("WZSPI_MainWindow", u"PushButton", None))
         self.button_create_instructions.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create Instructions", None))
         self.button_edit_instructions.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Edit Instructions", None))
         self.label_options.setText(QCoreApplication.translate("WZSPI_MainWindow", u"All Options", None))
