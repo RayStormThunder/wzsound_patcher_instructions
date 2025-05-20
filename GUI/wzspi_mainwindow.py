@@ -11,6 +11,9 @@ import subprocess
 from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton, QVBoxLayout, QLineEdit, QLabel
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
 from PySide6.QtCore import QTimer, QStringListModel, Signal
+from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton, QVBoxLayout, QLineEdit, QLabel
+from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
+from PySide6.QtCore import QTimer, QStringListModel, Signal
 
 # Try importing ui_form from current directory or GUI folder
 try:
@@ -694,6 +697,204 @@ class YamlHighlighter(QSyntaxHighlighter):
 
 class WZSPI_MainWindow(QMainWindow):
         def __init__(self, working_directory, parent=None):
+            super().__init__(parent)
+            self.ui = Ui_Dialog_Progress()
+            self.ui.setupUi(self)
+
+        def closeEvent(self, event):
+            # Emit the custom signal on close
+            self.cancelled.emit()
+            event.accept()
+
+class MissingBrsarDialog(QDialog):
+        def __init__(self, program_data_dir, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog()
+                self.ui.setupUi(self)
+
+                self.program_data_dir = program_data_dir
+                self.wzsound_path = os.path.join(self.program_data_dir, 'WZSound.brsar')
+
+                self.ui.button_error.clicked.connect(self.browse_file)
+
+        def browse_file(self):
+                file_path, _ = QFileDialog.getOpenFileName(self, "Select WZSound.brsar", "", "BRSAR Files (*.brsar)")
+                if file_path:
+                        try:
+                                if not os.path.exists(self.program_data_dir):
+                                        os.makedirs(self.program_data_dir)
+                                shutil.copy(file_path, self.wzsound_path)
+                                print(f"Copied WZSound.brsar to: {self.wzsound_path}")
+                                self.accept()
+                        except Exception as e:
+                                QMessageBox.critical(self, "Error", f"Failed to copy file:\n{e}")
+
+class MissingBrsarHDDialog(QDialog):
+        def __init__(self, program_data_dir, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog()
+                self.ui.setupUi(self)
+
+                self.program_data_dir = os.path.join(program_data_dir, 'ProgramData')
+                self.hd_wzsound_path = os.path.join(self.program_data_dir, 'WZSoundHD.brsar')
+
+                self.ui.button_error.setText("Browse HD File")
+                self.ui.label_error.setText("Please select the HD version of WZSound.brsar")
+
+                self.ui.button_error.clicked.connect(self.browse_file)
+
+        def browse_file(self):
+                file_path, _ = QFileDialog.getOpenFileName(self, "Select HD WZSound.brsar", "", "BRSAR Files (*.brsar)")
+                if file_path:
+                        try:
+                                if not os.path.exists(self.program_data_dir):
+                                        os.makedirs(self.program_data_dir)
+
+                                shutil.copy(file_path, self.hd_wzsound_path)
+                                print(f"Copied HD WZSound.brsar to: {self.hd_wzsound_path}")
+
+                                # Now call the extractor
+                                working_directory = os.path.dirname(sys.executable)
+                                extract_rwar_files(self.hd_wzsound_path, working_directory, target_folder="IndexesHD")
+
+                                self.accept()
+                        except Exception as e:
+                                QMessageBox.critical(self, "Error", f"Failed to copy or extract file:\n{e}")
+
+
+
+class ReportDialog(QDialog):
+        def __init__(self, file_path, project_name, too_big_list, exact_match_list, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog_Report()
+                self.ui.setupUi(self)
+
+                self.too_big_list = too_big_list
+                self.project_name = project_name
+                self.working_directory = file_path  # Alias for clarity
+
+                # Set lists
+                model1 = QStringListModel()
+                model1.setStringList(exact_match_list)
+                self.ui.listView.setModel(model1)
+
+                model2 = QStringListModel()
+                model2.setStringList(too_big_list)
+                self.ui.listView_2.setModel(model2)
+
+                # Disable reset button if there are no "too big" files
+                if not too_big_list:
+                        self.ui.button_reset.setEnabled(False)
+
+                # Connect buttons
+                self.ui.button_close.clicked.connect(self.close)
+                self.ui.button_explorer.clicked.connect(self.open_folder)
+                self.ui.button_reset.clicked.connect(self.reset_modified_files)
+
+                # Set release and project paths
+                self.release_path = os.path.join(file_path, "Releases", project_name)
+                self.projects_path = os.path.join(file_path, "Projects", project_name)
+
+        def open_folder(self):
+                if os.path.exists(self.release_path):
+                        subprocess.Popen(f'explorer "{self.release_path}"')  # Windows
+                else:
+                        QMessageBox.warning(self, "Folder Not Found", f"The path does not exist:\n{self.release_path}")
+
+        def reset_modified_files(self):
+                mod_folder = os.path.join(self.projects_path, "ModifiedRwavs")
+
+                files_deleted = []
+
+                for entry in self.too_big_list:
+                        # Extract base filename before first space
+                        base_name = entry.split(" ")[0]
+
+                        mod_file_path = os.path.join(mod_folder, base_name)
+
+                        if os.path.exists(mod_file_path):
+                                try:
+                                        os.remove(mod_file_path)
+                                        files_deleted.append(base_name)
+                                except Exception as e:
+                                        QMessageBox.warning(self, "Error", f"Failed to delete {base_name}:\n{e}")
+
+                # Update label_6 and disable reset button
+                if files_deleted:
+                        self.ui.label_6.setText("These files have been reset")
+
+                        # Rebuild BRWSD after reset
+                        setup_extraction(self.working_directory, self.project_name)
+                        build_brwsd_from_unmodified_rwavs(self.working_directory, self.project_name)
+
+                        QMessageBox.information(self, "Reset Complete", f"Deleted {len(files_deleted)} file(s) from ModifiedRwavs and rebuilt BRWSD.")
+                else:
+                        QMessageBox.information(self, "No Files Reset", "No matching files were found to delete.")
+
+                # Disable reset button after use
+                self.ui.button_reset.setEnabled(False)
+
+class SuccessDialog(QDialog):
+        def __init__(self, file_path, project_name, parent=None):
+                super().__init__(parent)
+                self.ui = Ui_Dialog_Success()
+                self.ui.setupUi(self)
+
+                # Connect buttons
+                self.ui.pushButton.clicked.connect(self.close)
+                self.ui.pushButton_2.clicked.connect(self.open_folder)
+
+                self.success_path = os.path.join(file_path, "Projects", project_name)
+
+
+        def open_folder(self):
+                if os.path.exists(self.success_path):
+                        subprocess.Popen(f'explorer "{self.success_path}"')  # Windows
+                else:
+                        QMessageBox.warning(self, "Folder Not Found", f"The path does not exist:\n{self.release_path}")
+
+
+class YamlHighlighter(QSyntaxHighlighter):
+        def __init__(self, parent):
+                super().__init__(parent)
+
+                # Key format (e.g., RWSD_4)
+                self.key_format = QTextCharFormat()
+                self.key_format.setForeground(QColor(100, 200, 255))
+
+                # Symbol format (e.g., ":" and "-")
+                self.symbol_format = QTextCharFormat()
+                self.symbol_format.setForeground(QColor("white"))
+
+                # Value format (e.g., numbers, ranges, or the word "All")
+                self.value_format = QTextCharFormat()
+                self.value_format.setForeground(QColor("orange"))
+
+                # Comment format (e.g., # Comment)
+                self.comment_format = QTextCharFormat()
+                self.comment_format.setForeground(QColor(144, 238, 144))  # Light green
+
+        def highlightBlock(self, text):
+                # Highlight comments
+                comment_match = re.search(r'#.*', text)
+                if comment_match:
+                        self.setFormat(comment_match.start(), len(text) - comment_match.start(), self.comment_format)
+                        return
+
+                # Highlight keys at the beginning of the line (before colon)
+                for match in re.finditer(r'^\s*[\w\-]+(?=\s*:)', text):
+                        self.setFormat(match.start(), match.end() - match.start(), self.key_format)
+
+                # Highlight symbols (":" and "-")
+                for match in re.finditer(r'[:\-]', text):
+                        self.setFormat(match.start(), match.end() - match.start(), self.symbol_format)
+
+                # Highlight numeric values, ranges, and the word "All"
+                for match in re.finditer(r'\b(?:\d+(?:\s*-\s*\d+)?|All)\b', text):
+                        self.setFormat(match.start(), match.end() - match.start(), self.value_format)
+
+class WZSPI_MainWindow(QMainWindow):
+        def __init__(self, working_directory, parent=None):
                 super().__init__(parent)
                 self.working_directory = working_directory  # Store for later use
                 self.ui = Ui_WZSPI_MainWindow()
@@ -1106,6 +1307,13 @@ if __name__ == "__main__":
 
         # Pass it into your main window
         widget = WZSPI_MainWindow(test_working_directory)
+
+        # Get the parent directory of the current script file
+        test_working_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), "Test"))
+
+        # Pass it into your main window
+        widget = WZSPI_MainWindow(test_working_directory)
         widget.show()
+
 
         sys.exit(app.exec())
