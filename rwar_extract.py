@@ -2,6 +2,10 @@ import os
 import struct
 import hashlib
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> c614fd41d2ea76a9c12c68e252abd5161018ce81
 def extract_rwar_files(input_file, output_filepath, target_folder="Indexes"):
 	output_folder = os.path.join(output_filepath, target_folder)
 	os.makedirs(output_folder, exist_ok=True)

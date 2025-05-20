@@ -345,4 +345,3 @@ class Ui_WZSPI_MainWindow(object):
         self.button_create_wzsound.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create WZSound Patcher Instructions", None))
         self.label_description_wzsound.setText(QCoreApplication.translate("WZSPI_MainWindow", u"After you have edited every RWAV file you want. You can click the \"Create WZSound Patcher Instructions\" button. This will take the data from your project and make a folder called \"WZedit\" inside of \"Releases/{Project_Name}.\" It will contain all of your RWAV files and an instruction file that will tell SSRando how to edit the WZSound with the RWAV files provided.", None))
     # retranslateUi
-
