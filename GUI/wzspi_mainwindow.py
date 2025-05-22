@@ -254,10 +254,23 @@ class MissingBrsarDialog(QDialog):
                                 if not os.path.exists(self.program_data_dir):
                                         os.makedirs(self.program_data_dir)
 
+                                # Show copying dialog
+                                copy_dialog = ProgressDialog(
+                                        self,
+                                        generated_text_message="Copying WZSound.brsar to Program Data Folder..."
+                                )
+                                copy_dialog.setWindowTitle("Copying File")
+                                copy_dialog.ui.progressBar.setMaximum(0)  # Indeterminate
+                                copy_dialog.ui.progressBar.setValue(0)
+                                copy_dialog.show()
+                                QApplication.processEvents()
+
                                 shutil.copy(file_path, self.wzsound_path)
+
+                                copy_dialog.close()
                                 print(f"Copied WZSound.brsar to: {self.wzsound_path}")
 
-                                # Show progress dialog
+                                # Show extraction progress dialog
                                 progress_dialog = ProgressDialog(
                                         self,
                                         generated_text_message="Extracting RWAR files from WZSound..."
@@ -306,10 +319,23 @@ class MissingBrsarHDDialog(QDialog):
                                 if not os.path.exists(self.program_data_dir):
                                         os.makedirs(self.program_data_dir)
 
+                                # Show copying dialog
+                                copy_dialog = ProgressDialog(
+                                        self,
+                                        generated_text_message="Copying HD WZSound.brsar to Program Data Folder..."
+                                )
+                                copy_dialog.setWindowTitle("Copying File")
+                                copy_dialog.ui.progressBar.setMaximum(0)  # Indeterminate
+                                copy_dialog.ui.progressBar.setValue(0)
+                                copy_dialog.show()
+                                QApplication.processEvents()
+
                                 shutil.copy(file_path, self.hd_wzsound_path)
+
+                                copy_dialog.close()
                                 print(f"Copied HD WZSound.brsar to: {self.hd_wzsound_path}")
 
-                                # Show progress dialog
+                                # Show extracting dialog
                                 progress_dialog = ProgressDialog(
                                         self,
                                         generated_text_message="Extracting RWAR files from WZSound HD..."
@@ -335,8 +361,6 @@ class MissingBrsarHDDialog(QDialog):
 
                         except Exception as e:
                                 QMessageBox.critical(self, "Error", f"Failed to copy or extract file:\n{e}")
-
-
 
 
 class ReportDialog(QDialog):
@@ -781,11 +805,25 @@ class WZSPI_MainWindow(QMainWindow):
                 hd_output_folder = os.path.join(project_folder, "ModifiedWZSoundHD")
                 os.makedirs(hd_output_folder, exist_ok=True)
 
-                # Step 2: Copy original HD WZSound.brsar into that folder
+                # Step 2: Copy original HD WZSound.brsar into that folder with visual feedback
                 source_brsar = os.path.join(working_directory, "ProgramData", "WZSoundHD.brsar")
                 patched_brsar = os.path.join(hd_output_folder, "WZSound.brsar")
+
+                copy_dialog = ProgressDialog(
+                        self,
+                        generated_text_message="Copying WZSoundHD.brsar to project folder..."
+                )
+                copy_dialog.setWindowTitle("Copying File")
+                copy_dialog.ui.progressBar.setMaximum(0)  # Indeterminate
+                copy_dialog.ui.progressBar.setValue(0)
+                copy_dialog.show()
+                QApplication.processEvents()
+
                 shutil.copy(source_brsar, patched_brsar)
+
+                copy_dialog.close()
                 print(f"[INFO] Copied WZSoundHD.brsar to {patched_brsar}")
+
 
                 # Step 3: Patch RWAVs
                 unmodified_folder = os.path.join(project_folder, "UnmodifiedRwavsHD")
