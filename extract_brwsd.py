@@ -1,25 +1,23 @@
 import os
 import struct
 
-def extract_rwavs(file_path, project_name):
-	# Build paths
+from PySide6.QtWidgets import QApplication
+
+def extract_rwavs(file_path, project_name, progress_ui=None, cancel_flag=None):
 	project_folder = os.path.join(file_path, "Projects", project_name)
 	brwsd_path = os.path.join(project_folder, "your_project.brwsd")
 	unmod_rwav_folder = os.path.join(project_folder, "UnmodifiedRwavs")
 	mod_rwav_folder = os.path.join(project_folder, "ModifiedRwavs")
 
-	# Check if BRWSD file exists
 	if not os.path.exists(brwsd_path):
 		print(f"BRWSD file not found: {brwsd_path}")
 		return
 
-	# Get list of filenames from UnmodifiedRwavs
 	unmodified_names = sorted([
 		f for f in os.listdir(unmod_rwav_folder)
 		if os.path.isfile(os.path.join(unmod_rwav_folder, f))
 	])
 
-	# Create ModifiedRwavs folder if it doesn't exist
 	os.makedirs(mod_rwav_folder, exist_ok=True)
 
 	with open(brwsd_path, "rb") as f:
@@ -27,35 +25,39 @@ def extract_rwavs(file_path, project_name):
 
 	offset = 0
 	index = 0
+	total = len(unmodified_names)
 
-	while offset < len(data) and index < len(unmodified_names):
-		# Look for RWAV header
+	while offset < len(data) and index < total:
+		if cancel_flag and cancel_flag.get("cancelled"):
+			print("RWAV extraction cancelled.")
+			return
+
 		if data[offset:offset+4] == b'RWAV':
-			# Go forward 8 bytes from header
 			size_offset = offset + 8
 			if size_offset + 4 > len(data):
-				print("Incomplete size data, skipping...")
 				break
 
-			size = struct.unpack(">I", data[size_offset:size_offset+4])[0]  # Big-endian uint32
+			size = struct.unpack(">I", data[size_offset:size_offset+4])[0]
 			rwav_data = data[offset:offset+size]
-
-			# Write the RWAV data to file
 			output_filename = unmodified_names[index]
-			output_path = os.path.join(mod_rwav_folder, output_filename)
-			with open(output_path, "wb") as out_f:
+			with open(os.path.join(mod_rwav_folder, output_filename), "wb") as out_f:
 				out_f.write(rwav_data)
 
-			print(f"Extracted {output_filename} ({size} bytes)")
 			index += 1
-			offset += size  # Move to the next RWAV after this chunk
+			offset += size
 		else:
-			offset += 1  # Move forward and keep searching
+			offset += 1
 
-	if index < len(unmodified_names):
-		print(f"Warning: Only {index} RWAV(s) found, but {len(unmodified_names)} files expected.")
+		if progress_ui:
+			progress_ui.progressBar.setValue(int((index / total) * 100))
+			progress_ui.generated_text.setText(f"Extracting RWAV {index}/{total}")
+			QApplication.processEvents()
+
+	if index < total:
+		print(f"Warning: Only {index} RWAV(s) found, expected {total}")
 	else:
 		print("RWAV extraction completed.")
+
 
 def check_modified_vs_unmodified(file_path, project_name):
 	project_folder = os.path.join(file_path, "Projects", project_name)

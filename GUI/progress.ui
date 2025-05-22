@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>200</width>
-    <height>150</height>
+    <height>75</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,11 +15,11 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,5,0">
+    <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,5">
      <item>
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="generated_text">
        <property name="text">
-        <string>Processing {Audio_File_Name}</string>
+        <string>Working</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -30,13 +30,6 @@
       <widget class="QProgressBar" name="progressBar">
        <property name="value">
         <number>0</number>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string/>
        </property>
       </widget>
      </item>

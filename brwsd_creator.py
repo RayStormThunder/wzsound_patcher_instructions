@@ -2,6 +2,8 @@ import os
 import struct
 import shutil
 
+from PySide6.QtWidgets import QApplication
+
 def pad_to_multiple_of(value, multiple):
     """Pads a value to the next multiple of 'multiple'."""
     remainder = value % multiple
@@ -113,25 +115,29 @@ def combine_rwav_files_to_brwsd(rwav_folder, mod_folder, output_file):
 
 		print(f"Created {output_file} with combined RWAV files and headers.")
 
+def build_brwsd_from_unmodified_rwavs(working_directory, project_folder, progress_ui=None, cancel_flag=None):
+	unmod_folder = os.path.join(working_directory, "Projects", project_folder, "UnmodifiedRwavs")
+	mod_folder = os.path.join(working_directory, "Projects", project_folder, "ModifiedRwavs")
+	output_brwsd = os.path.join(working_directory, "Projects", project_folder, "your_project.brwsd")
+	base_blank = os.path.join(working_directory, "ProgramData", "BaseBlankFile.brwsd")
 
-def build_brwsd_from_unmodified_rwavs(working_directory, project_folder):
-    unmod_folder = os.path.join(working_directory, "Projects", project_folder, "UnmodifiedRwavs")
-    output_brwsd = os.path.join(working_directory, "Projects", project_folder, f"your_project.brwsd")
-    mod_folder = os.path.join(working_directory, "Projects", project_folder, "ModifiedRwavs")
-    base_blank = os.path.join(working_directory, "ProgramData", "BaseBlankFile.brwsd")
+	if not os.path.exists(unmod_folder) or not os.path.exists(base_blank):
+		return
 
-    if not os.path.exists(unmod_folder):
-        print(f"Missing folder: {unmod_folder}")
-        return
+	if progress_ui:
+		progress_ui.generated_text.setText("Combining RWAVs into BRWSD...")
+		progress_ui.progressBar.setMaximum(0)
+		QApplication.processEvents()
 
-    if not os.path.exists(base_blank):
-        print(f"Missing base blank file: {base_blank}")
-        return
+	combine_rwav_files_to_brwsd(unmod_folder, mod_folder, output_brwsd)
 
-    # Step 1: Combine RWAVs into temporary .brwsd file
-    print("Combining RWAV files...")
-    combine_rwav_files_to_brwsd(unmod_folder, mod_folder, output_brwsd)
+	if progress_ui:
+		progress_ui.generated_text.setText("Finalizing BRWSD file...")
+		QApplication.processEvents()
 
-    # Step 2: Append that file to a copy of BaseBlankFile.brwsd
-    print("Appending to base blank and finalizing...")
-    append_and_replace_base_blank(base_blank, output_brwsd)
+	append_and_replace_base_blank(base_blank, output_brwsd)
+
+	if progress_ui:
+		progress_ui.progressBar.setMaximum(100)
+		progress_ui.progressBar.setValue(100)
+

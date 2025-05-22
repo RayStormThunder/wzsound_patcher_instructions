@@ -60,6 +60,8 @@ def main():
 
     window = WZSPI_MainWindow(working_directory)
     window.setWindowTitle(f"WZSound Main - {VERSION} - {COMMIT_ID}")
+    if VERSION == "":
+        window.setWindowTitle(f"WZSound Main - LOCAL - {COMMIT_ID}")
     window.show()
     check_wzsound_file(window)
     sys.exit(app.exec())

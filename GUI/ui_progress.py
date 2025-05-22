@@ -22,27 +22,22 @@ class Ui_Dialog_Progress(object):
     def setupUi(self, Dialog_Progress):
         if not Dialog_Progress.objectName():
             Dialog_Progress.setObjectName(u"Dialog_Progress")
-        Dialog_Progress.resize(200, 150)
+        Dialog_Progress.resize(200, 75)
         self.verticalLayout = QVBoxLayout(Dialog_Progress)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout_2 = QVBoxLayout()
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
-        self.label = QLabel(Dialog_Progress)
-        self.label.setObjectName(u"label")
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.generated_text = QLabel(Dialog_Progress)
+        self.generated_text.setObjectName(u"generated_text")
+        self.generated_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.verticalLayout_2.addWidget(self.label)
+        self.verticalLayout_2.addWidget(self.generated_text)
 
         self.progressBar = QProgressBar(Dialog_Progress)
         self.progressBar.setObjectName(u"progressBar")
         self.progressBar.setValue(0)
 
         self.verticalLayout_2.addWidget(self.progressBar)
-
-        self.label_2 = QLabel(Dialog_Progress)
-        self.label_2.setObjectName(u"label_2")
-
-        self.verticalLayout_2.addWidget(self.label_2)
 
         self.verticalLayout_2.setStretch(1, 5)
 
@@ -56,7 +51,6 @@ class Ui_Dialog_Progress(object):
 
     def retranslateUi(self, Dialog_Progress):
         Dialog_Progress.setWindowTitle(QCoreApplication.translate("Dialog_Progress", u"Dialog", None))
-        self.label.setText(QCoreApplication.translate("Dialog_Progress", u"Processing {Audio_File_Name}", None))
-        self.label_2.setText("")
+        self.generated_text.setText(QCoreApplication.translate("Dialog_Progress", u"Working", None))
     # retranslateUi
 

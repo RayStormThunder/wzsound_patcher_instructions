@@ -52,7 +52,6 @@ def create_patch_file(working_directory, project_name, too_big_list, exact_match
         files_done += 1
 
         if progress_ui:
-            progress_ui.label.setText(f"Processing {filename}")
             percent = int((files_done / files_total) * 100)
             progress_ui.progressBar.setValue(percent)
             QApplication.processEvents()

@@ -5,40 +5,50 @@ import time
 from collections import defaultdict
 import hashlib
 
-def delete_duplicate_rwavs(output_folder):
-    """Deletes duplicate .rwav files based on exact byte match."""
-    seen = {}
-    duplicates_to_delete = []
+from PySide6.QtWidgets import QApplication
 
-    for filename in os.listdir(output_folder):
-        if not filename.endswith(".rwav"):
-            continue
-        file_path = os.path.join(output_folder, filename)
+def delete_duplicate_rwavs(output_folder, progress_ui=None, cancel_flag=None):
+	seen = {}
+	duplicates_to_delete = []
+	all_files = [f for f in os.listdir(output_folder) if f.endswith(".rwav")]
+	total = len(all_files)
+	processed = 0
+	removed = 0
 
-        with open(file_path, 'rb') as f:
-            data = f.read()
-            hash_digest = hashlib.md5(data).hexdigest()
+	for filename in all_files:
+		if cancel_flag and cancel_flag.get("cancelled"):
+			print("Duplicate cleanup cancelled by user.")
+			return
 
-            if hash_digest in seen:
-                duplicates_to_delete.append(file_path)
-                print(f"Marked duplicate: {filename} (same as {seen[hash_digest]})")
-            else:
-                seen[hash_digest] = filename
+		file_path = os.path.join(output_folder, filename)
+		with open(file_path, 'rb') as f:
+			data = f.read()
+			hash_digest = hashlib.md5(data).hexdigest()
 
-    # All files are closed at this point and safe to delete
-    removed = 0
-    for file_path in duplicates_to_delete:
-        try:
-            os.remove(file_path)
-            print(f"Deleted duplicate: {os.path.basename(file_path)}")
-            removed += 1
-        except PermissionError:
-            print(f"Could not delete (locked): {os.path.basename(file_path)}")
+			if hash_digest in seen:
+				duplicates_to_delete.append(file_path)
+				print(f"Marked duplicate: {filename} (same as {seen[hash_digest]})")
+			else:
+				seen[hash_digest] = filename
 
-    if removed == 0:
-        print("No duplicates removed.")
-    else:
-        print(f"Removed {removed} duplicate RWAV files.")
+		processed += 1
+		if progress_ui:
+			percent = int((processed / total) * 100)
+			progress_ui.progressBar.setValue(percent)
+			if hasattr(progress_ui, "label_status"):
+				progress_ui.label_status.setText(f"Checking for duplicates: {filename}")
+			QApplication.processEvents()
+
+	for file_path in duplicates_to_delete:
+		try:
+			os.remove(file_path)
+			print(f"Deleted duplicate: {os.path.basename(file_path)}")
+			removed += 1
+		except PermissionError:
+			print(f"Could not delete (locked): {os.path.basename(file_path)}")
+
+	print(f"Removed {removed} duplicate RWAV files." if removed else "No duplicates removed.")
+
 
 def parse_instruction_value(value):
   if value == 'All':
@@ -48,70 +58,91 @@ def parse_instruction_value(value):
     return list(range(start, end + 1))
   return [int(value)]
 
-def extract_rwav_from_instructions(working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavs"):
-  # Indexes folder path
-  index_folder = target_path
+def extract_rwav_from_instructions(
+	working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavs",
+	progress_ui=None, cancel_flag=None
+):
+	index_folder = target_path
+	output_folder = os.path.join(working_directory, "Projects", project_folder, output)
+	os.makedirs(output_folder, exist_ok=True)
 
-  # Output folder
-  output_folder = os.path.join(working_directory, "Projects", project_folder, output)
-  os.makedirs(output_folder, exist_ok=True)
+	# Delete existing .rwav files
+	for f in os.listdir(output_folder):
+		if f.endswith(".rwav"):
+			os.remove(os.path.join(output_folder, f))
 
-  # Delete all existing .rwav files
-  for f in os.listdir(output_folder):
-    if f.endswith(".rwav"):
-      os.remove(os.path.join(output_folder, f))
+	total_items = sum(
+		1 for index_key in instructions for file_name in os.listdir(index_folder)
+		if file_name.startswith(f"Index_{index_key.split('_')[1].zfill(3)}_") and file_name.endswith(".brwsd")
+	)
+	if total_items == 0:
+		total_items = 1  # prevent division by zero
 
-  for index_key, rule_list in instructions.items():
-    index_number = index_key.split("_")[1].zfill(3)
+	progress = 0
+	processed = 0
 
-    # Match files like Index_015_001.brwsd
-    for file_name in os.listdir(index_folder):
-      if file_name.startswith(f"Index_{index_number}_") and file_name.endswith(".brwsd"):
-        full_path = os.path.join(index_folder, file_name)
-        with open(full_path, 'rb') as f:
-          data = f.read()
+	for index_key, rule_list in instructions.items():
+		index_number = index_key.split("_")[1].zfill(3)
 
-        # Find all RWAV headers
-        rwav_offsets = []
-        pos = 0
-        while pos < len(data):
-          pos = data.find(b'RWAV', pos)
-          if pos == -1:
-            break
-          rwav_offsets.append(pos)
-          pos += 4
+		for file_name in os.listdir(index_folder):
+			if not file_name.startswith(f"Index_{index_number}_") or not file_name.endswith(".brwsd"):
+				continue
 
-        if not rwav_offsets:
-          continue
+			if cancel_flag and cancel_flag.get("cancelled"):
+				print("Extraction cancelled by user.")
+				return
 
-        # Build list of audio numbers to extract
-        extract_indices = set()
-        for rule in rule_list:
-          if rule == 'All':
-            extract_indices = set(range(1, len(rwav_offsets) + 1))  # 1-based indexing
-            break
-          extract_indices.update(i + 1 for i in parse_instruction_value(rule))
+			full_path = os.path.join(index_folder, file_name)
+			with open(full_path, 'rb') as f:
+				data = f.read()
 
-        for i, offset in enumerate(rwav_offsets):
-          audio_number = i + 1
-          if audio_number not in extract_indices:
-            continue
+			rwav_offsets = []
+			pos = 0
+			while pos < len(data):
+				pos = data.find(b'RWAV', pos)
+				if pos == -1:
+					break
+				rwav_offsets.append(pos)
+				pos += 4
 
-          size_offset = offset + 8
-          if size_offset + 4 > len(data):
-            continue
+			if not rwav_offsets:
+				continue
 
-          rwav_size = struct.unpack(">I", data[size_offset:size_offset + 4])[0]
-          extracted_data = data[offset:offset + rwav_size]
+			extract_indices = set()
+			for rule in rule_list:
+				if rule == 'All':
+					extract_indices = set(range(1, len(rwav_offsets) + 1))
+					break
+				extract_indices.update(i + 1 for i in parse_instruction_value(rule))
 
-          # Save with audio_number - 1
-          out_filename = f"Audio_{index_number}_{str(audio_number - 1).zfill(3)}.rwav"
-          out_path = os.path.join(output_folder, out_filename)
+			for i, offset in enumerate(rwav_offsets):
+				audio_number = i + 1
+				if audio_number not in extract_indices:
+					continue
 
-          with open(out_path, 'wb') as out_f:
-            out_f.write(extracted_data)
+				size_offset = offset + 8
+				if size_offset + 4 > len(data):
+					continue
 
-          print(f"Extracted {out_filename}")
+				rwav_size = struct.unpack(">I", data[size_offset:size_offset + 4])[0]
+				extracted_data = data[offset:offset + rwav_size]
+
+				out_filename = f"Audio_{index_number}_{str(audio_number - 1).zfill(3)}.rwav"
+				out_path = os.path.join(output_folder, out_filename)
+
+				with open(out_path, 'wb') as out_f:
+					out_f.write(extracted_data)
+
+				print(f"Extracted {out_filename}")
+
+			processed += 1
+			if progress_ui:
+				progress = int((processed / total_items) * 100)
+				progress_ui.progressBar.setValue(progress)
+				if hasattr(progress_ui, "label_status"):
+					progress_ui.label_status.setText(f"Extracting: {file_name}")
+				QApplication.processEvents()
+
 
 def parse_range(value):
     if isinstance(value, int):
@@ -214,32 +245,49 @@ def read_project_instructions(filepath, folder_name):
         print(f"Error reading {instructions_path}: {e}")
         return []
 
-def setup_extraction(working_directory, current_project):
-    # Read instructions from instructions.yaml file
-    entries = read_project_instructions(working_directory, current_project)
-    print(entries)
-      
-    instructions = merge_yaml_rules(working_directory, entries)
-    print(instructions)
-    
-    index_folder = os.path.join(working_directory, "Indexes")
+def setup_extraction(working_directory, current_project, progress_ui=None, cancel_flag=None):
+	entries = read_project_instructions(working_directory, current_project)
+	instructions = merge_yaml_rules(working_directory, entries)
+	index_folder = os.path.join(working_directory, "Indexes")
+	extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder, progress_ui=progress_ui, cancel_flag=cancel_flag)
 
-    extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder)
+	if progress_ui:
+		progress_ui.generated_text.setText("Removing duplicates...")
+		progress_ui.progressBar.setValue(0)
+		QApplication.processEvents()
 
-    output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
-    delete_duplicate_rwavs(output_folder)
+	output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
+	delete_duplicate_rwavs(output_folder, progress_ui=progress_ui, cancel_flag=cancel_flag)
 
-def setup_extraction_converted(working_directory, current_project):
-    # Read instructions from instructions.yaml file
-    entries = read_project_instructions(working_directory, current_project)
-    print(entries)
-      
-    instructions = merge_yaml_rules(working_directory, entries)
-    print(instructions)
+def setup_extraction_converted(working_directory, current_project, progress_ui=None, cancel_flag=None):
+	if progress_ui:
+		progress_ui.generated_text.setText("Reading patch instructions (Converted)...")
+		QApplication.processEvents()
 
-    index_folder = os.path.join(working_directory, "Projects", current_project, "Indexes")
+	entries = read_project_instructions(working_directory, current_project)
+	instructions = merge_yaml_rules(working_directory, entries)
 
-    extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder, "ModifiedRwavs")
+	if progress_ui:
+		progress_ui.generated_text.setText("Extracting RWAVs from Converted Indexes...")
+		progress_ui.progressBar.setValue(0)
+		QApplication.processEvents()
+
+	index_folder = os.path.join(working_directory, "Projects", current_project, "Indexes")
+	extract_rwav_from_instructions(
+		working_directory,
+		current_project,
+		instructions,
+		index_folder,
+		output="ModifiedRwavs",
+		progress_ui=progress_ui,
+		cancel_flag=cancel_flag
+	)
+
+	if progress_ui:
+		progress_ui.generated_text.setText("Converted extraction complete.")
+		progress_ui.progressBar.setValue(100)
+		QApplication.processEvents()
+
 
 def adjust_instructions_for_extras(instructions: dict) -> dict:
 	# Map of Index_XYZ to list of extra RWAVs to remove
@@ -303,22 +351,42 @@ def adjust_instructions_for_extras(instructions: dict) -> dict:
 
 	return adjusted
 
-def setup_extraction_HD(working_directory, current_project):
-	# Step 1: Read instructions
+def setup_extraction_HD(working_directory, current_project, progress_ui=None, cancel_flag=None):
 	entries = read_project_instructions(working_directory, current_project)
 	print(entries)
 
-	# Step 2: Merge YAML rules
+	if progress_ui and hasattr(progress_ui, "generated_text"):
+		progress_ui.generated_text.setText("Merging instructions for HD extraction...")
+		QApplication.processEvents()
+
 	instructions = merge_yaml_rules(working_directory, entries)
 	print(instructions)
 
-	# Step 3: Adjust instructions for known RWAV offsets
 	instructions = adjust_instructions_for_extras(instructions)
 
-	# Step 4: Extract based on fixed instructions
 	index_folder = os.path.join(working_directory, "IndexesHD")
-	extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder, "UnmodifiedRwavsHD")
 
-	# Step 5: Cleanup
+	if progress_ui and hasattr(progress_ui, "generated_text"):
+		progress_ui.generated_text.setText("Extracting RWAV files from HD indexes...")
+		QApplication.processEvents()
+
+	extract_rwav_from_instructions(
+		working_directory,
+		current_project,
+		instructions,
+		index_folder,
+		"UnmodifiedRwavsHD",
+		progress_ui=progress_ui,
+		cancel_flag=cancel_flag
+	)
+
+	if progress_ui and hasattr(progress_ui, "generated_text"):
+		progress_ui.generated_text.setText("Removing duplicate RWAV files...")
+		if hasattr(progress_ui, "progressBar"):
+			progress_ui.progressBar.setValue(0)
+		QApplication.processEvents()
+
 	output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavsHD")
-	delete_duplicate_rwavs(output_folder)
+	delete_duplicate_rwavs(output_folder, progress_ui=progress_ui, cancel_flag=cancel_flag)
+
+

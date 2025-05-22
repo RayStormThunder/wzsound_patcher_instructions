@@ -57,15 +57,6 @@ except ImportError:
         except ImportError as e:
                 raise ImportError("Could not import Ui_Dialog_Progress from ui_progress or GUI.ui_progress") from e
 
-# Try importing ui_convert from current directory or GUI folder
-try:
-        from ui_convert import Ui_Dialog_Convert
-except ImportError:
-        try:
-                from GUI.ui_convert import Ui_Dialog_Convert
-        except ImportError as e:
-                raise ImportError("Could not import Ui_Dialog_Convert from ui_convert or GUI.ui_convert") from e
-
 try:
         from rwav_extract import setup_extraction, setup_extraction_converted, setup_extraction_HD
         print("imported rwav_extract")
@@ -211,299 +202,39 @@ def format_name(name: str) -> str:
         formatted_parts = [part.capitalize() for part in parts if part]
         return "_".join(formatted_parts)
 
-
-class ConvertDialog(QDialog):
-        def __init__(self, working_directory, project_name, parent=None):
-                super().__init__(parent)
-                self.ui = Ui_Dialog_Convert()
-                self.ui.setupUi(self)
-
-                self.working_directory = working_directory
-                self.project_name = project_name
-                print(f"ConvertDialog received project name: {self.project_name}")
-
-                # Enable pushButton_4 only if project_name is valid and ModifiedRwavs folder exists
-                if self.project_name:
-                        modified_rwavs_path = os.path.join(
-                                self.working_directory, "Projects", self.project_name, "ModifiedRwavs"
-                        )
-                        self.ui.pushButton_4.setEnabled(os.path.isdir(modified_rwavs_path))
-                else:
-                        self.ui.pushButton_3.setEnabled(False)
-                        self.ui.pushButton_4.setEnabled(False)
-
-
-                # Connect pushButton_3 to run_patch
-                self.ui.pushButton_3.clicked.connect(self.run_patch)
-
-                # Connect pushButton_4 to the custom logic
-                self.ui.pushButton_4.clicked.connect(self.handle_pushbutton_4_click)
-
-                self.ui.ConvertModified.clicked.connect(self.open_modified_input_dialog)
-
-        def convert_modified(self, project_name, instruction_file):
-                project_name = format_name(project_name)
-                project_dir = os.path.join(self.working_directory, "Projects", project_name)
-                instruction_file = format_name(instruction_file)
-
-                # Step 1: Create the folder if it doesn't exist
-                try:
-                        os.makedirs(project_dir, exist_ok=True)
-                        print(f"[INFO] Created or found existing folder: {project_dir}")
-                except Exception as e:
-                        QMessageBox.critical(self, "Error", f"Failed to create project folder:\n{e}")
-                        return
-
-                # Step 2: Ask user to provide the modified WZSound.brsar
-                file_path, _ = QFileDialog.getOpenFileName(self, "Select Modified WZSound.brsar", "", "BRSAR Files (*.brsar)")
-                if not file_path:
-                        QMessageBox.information(self, "Cancelled", "No file selected.")
-                        return
-
-                # Step 3: Copy the selected file into the project folder
-                try:
-                        modified_dir = os.path.join(project_dir, "ModifiedWZSound")
-                        os.makedirs(modified_dir, exist_ok=True)
-
-                        # Copy to ModifiedWZSound/WZSound.brsar
-                        dest_path = os.path.join(modified_dir, "WZSound.brsar")
-                        shutil.copy(file_path, dest_path)
-                        print(f"[INFO] Copied modified WZSound to: {dest_path}")
-
-                        target_folder = os.path.join("Projects", project_name, "Indexes")
-                        extract_rwar_files(dest_path, self.working_directory, target_folder=target_folder)
-                except Exception as e:
-                        QMessageBox.critical(self, "Error", f"Failed to copy file:\n{e}")
-                        return
-
-                # Step 4: You can store the instruction file name, or continue processing here
-                print(f"[SUCCESS] Project setup complete for '{project_name}' with instruction file '{instruction_file}'")
-
-                # Step 5: Compare Indexes and generate instruction YAML
-                modified_indexes = os.path.join(project_dir, "Indexes")
-                original_indexes = os.path.join(self.working_directory, "Indexes")
-                instruction_output_dir = os.path.join(self.working_directory, "Instructions")
-
-                instruction_path = extract_differences_and_create_instruction(
-                        modified_folder=modified_indexes,
-                        original_folder=original_indexes,
-                        output_directory=instruction_output_dir,
-                        instruction_filename=f"{instruction_file}.yaml"
-                )
-
-                print(f"[SUCCESS] Instruction file created at: {instruction_path}")
-
-                # Step 6: Write 'instructions.yaml' in the project folder
-                instruction_list_path = os.path.join(project_dir, "instructions.yaml")
-                instruction_name_without_ext = instruction_file  # because we never added .yaml to this variable
-
-                try:
-                        with open(instruction_list_path, "w") as f:
-                                yaml.dump([instruction_name_without_ext], f, default_flow_style=False)
-                        print(f"[INFO] Wrote instructions.yaml to: {instruction_list_path}")
-                except Exception as e:
-                        QMessageBox.critical(self, "Error", f"Failed to write instructions.yaml:\n{e}")
-                        return
-
-                # Step 7: Generate converted BRWSD using final project name
-                self.create_brwsd_converted(project_name)
-
-        def create_brwsd_converted(self, project_name):
-                extract_rwavs(self.working_directory, project_name)
-                setup_extraction(self.working_directory, project_name)
-                setup_extraction_converted(self.working_directory, project_name)
-                build_brwsd_from_unmodified_rwavs(self.working_directory, project_name)
-                print("Create BRWSD clicked")
-
-                # Show the report dialog
-                dialog = SuccessDialog(self.working_directory, project_name, self)
-                dialog.exec()
-
-        def open_modified_input_dialog(self):
-                dialog = QDialog(self)
-                dialog.setWindowTitle("Convert Modified")
-
-                layout = QVBoxLayout(dialog)
-
-                project_input = QLineEdit()
-                project_input.setPlaceholderText("Enter project name")
-                instruction_input = QLineEdit()
-                instruction_input.setPlaceholderText("Enter instruction file name")
-
-                submit_button = QPushButton("Submit")
-
-                layout.addWidget(QLabel("Project Name:"))
-                layout.addWidget(project_input)
-                layout.addWidget(QLabel("Instruction File:"))
-                layout.addWidget(instruction_input)
-                layout.addWidget(QLabel("Submit an SD WZSound file that IS MODIFIED with sound effects already replaced in it"))
-                layout.addWidget(submit_button)
-
-                def on_submit():
-                        project_name = project_input.text().strip()
-                        instruction_file = instruction_input.text().strip()
-
-                        if not project_name or not instruction_file:
-                                QMessageBox.warning(dialog, "Missing Input", "Both fields must be filled.")
-                                return
-
-                        dialog.accept()
-
-                        # Call your logic here using project_name and instruction_file
-                        print(f"Submitted project: {project_name}, instruction file: {instruction_file}")
-                        self.convert_modified(project_name, instruction_file)
-
-                submit_button.clicked.connect(on_submit)
-
-                dialog.exec()
-
-
-        def handle_pushbutton_4_click(self):
-                indexes_hd_path = os.path.join(self.working_directory, "IndexesHD")
-                if not os.path.exists(indexes_hd_path):
-                        dialog = MissingBrsarHDDialog(self.working_directory, self)
-                        if dialog.exec() != QDialog.Accepted:
-                                print("User cancelled HD WZSound selection.")
-                                return  # Skip rest if user cancels
-                        else:
-                                print("HD WZSound provided.")
-
-                # Proceed with the actual HD patch logic
-                self.run_hd_patch()
-
-        def run_hd_patch(self):
-                # Replace with your actual logic
-                print("Running HD patch logic...")
-                project_name = self.project_name
-                setup_extraction_HD(self.working_directory, project_name)
-                self.patch_hd_wzsound(self.working_directory, self.project_name)
-
-
-        def patch_hd_wzsound(self, working_directory, project_name):
-                def find_all_occurrences(data: bytes, pattern: bytes) -> list:
-                        indices = []
-                        start = 0
-                        while True:
-                                index = data.find(pattern, start)
-                                if index == -1:
-                                        break
-                                indices.append(index)
-                                start = index + 1
-                        return indices
-
-                project_folder = os.path.join(working_directory, "Projects", project_name)
-
-                # Step 1: Create "WZSoundHD" folder inside the project folder
-                hd_output_folder = os.path.join(project_folder, "WZSoundHD")
-                os.makedirs(hd_output_folder, exist_ok=True)
-
-                # Step 2: Copy original HD WZSound.brsar into that folder
-                source_brsar = os.path.join(working_directory, "ProgramData", "WZSoundHD.brsar")
-                patched_brsar = os.path.join(hd_output_folder, "WZSound.brsar")
-                shutil.copy(source_brsar, patched_brsar)
-                print(f"[INFO] Copied WZSoundHD.brsar to {patched_brsar}")
-
-                # Step 3: Patch RWAVs
-                unmodified_folder = os.path.join(project_folder, "UnmodifiedRwavsHD")
-                modified_folder = os.path.join(project_folder, "ModifiedRwavs")
-
-                # Load file into memory
-                with open(patched_brsar, "rb") as f:
-                        data = bytearray(f.read())
-
-                # Prepare list of RWAVs to patch
-                rwav_files = [f for f in os.listdir(unmodified_folder) if f.endswith(".rwav")]
-                total = len(rwav_files)
-                processed = 0
-
-                # Show progress dialog
-                progress_dialog = ProgressDialog(self)
-                progress_dialog.setWindowTitle("Patching RWAV Files...")
-                progress_dialog.ui.progressBar.setMaximum(total)
-                progress_dialog.show()
-                QApplication.processEvents()
-
-                for filename in rwav_files:
-                        processed += 1
-
-                        if hasattr(progress_dialog.ui, "label_status"):
-                                progress_dialog.ui.label_status.setText(f"Patching {processed} of {total}: {filename}")
-                        if hasattr(progress_dialog.ui, "progressBar"):
-                                progress_dialog.ui.progressBar.setValue(processed)
-                        QApplication.processEvents()
-
-                        unmod_path = os.path.join(unmodified_folder, filename)
-                        mod_path = os.path.join(modified_folder, filename)
-
-                        if not os.path.exists(mod_path):
-                                continue  # No modified version exists
-
-                        with open(unmod_path, "rb") as f_unmod:
-                                unmod_data = f_unmod.read()
-                        with open(mod_path, "rb") as f_mod:
-                                mod_data = f_mod.read()
-
-                        if len(mod_data) > len(unmod_data):
-                                print(f"[SKIPPED] Modified RWAV '{filename}' is larger than original. Cannot safely replace.")
-                                continue
-
-                        occurrences = find_all_occurrences(data, unmod_data)
-
-                        if not occurrences:
-                                print(f"[WARNING] Could not find unmodified RWAV: {filename}")
-                                continue
-
-                        for index in occurrences:
-                                data[index:index + len(mod_data)] = mod_data
-                                remaining = len(unmod_data) - len(mod_data)
-                                data[index + len(mod_data):index + len(unmod_data)] = b'\x00' * remaining
-                                print(f"[PATCHED] Replaced RWAV: {filename} at offset {index}")
-
-                progress_dialog.close()
-
-                # Save patched file
-                with open(patched_brsar, "wb") as f:
-                        f.write(data)
-
-                print("[SUCCESS] WZSound.brsar HD patching complete.")
-
-        def run_patch(self):
-            apply_wzsound_patch(self.working_directory, self.project_name)
-            self.close()
-            self.show_confirmation()
-
-        def show_confirmation(self):
-            msg_box = QMessageBox(self)
-            msg_box.setIcon(QMessageBox.Information)
-            msg_box.setWindowTitle("WZSound Patch Applied")
-            msg_box.setText("Successfully applied WZSound patch.")
-
-            open_button = msg_box.addButton("Open WZSound Location", QMessageBox.AcceptRole)
-            close_button = msg_box.addButton("Close", QMessageBox.RejectRole)
-
-            msg_box.exec()
-
-            if msg_box.clickedButton() == open_button:
-                wzsound_folder = os.path.join(self.working_directory, "Projects", self.project_name, "WZSound")
-                if os.path.exists(wzsound_folder):
-                    subprocess.Popen(f'explorer "{wzsound_folder}"')  # Windows only
-                else:
-                    QMessageBox.warning(self, "Folder Not Found", f"Folder does not exist:\n{wzsound_folder}")
-
-
-
 class ProgressDialog(QDialog):
         cancelled = Signal()  # Custom signal emitted if the window is closed by user
 
-        def __init__(self, parent=None):
-            super().__init__(parent)
-            self.ui = Ui_Dialog_Progress()
-            self.ui.setupUi(self)
+        def __init__(self, parent=None, generated_text_message: str = ""):
+                super().__init__(parent)
+                self.ui = Ui_Dialog_Progress()
+                self.ui.setupUi(self)
+
+                # Set message
+                if hasattr(self.ui, "generated_text"):
+                        self.ui.generated_text.setText(generated_text_message)
+
+                # Apply custom style to progress bar
+                if hasattr(self.ui, "progressBar"):
+                        self.ui.progressBar.setStyleSheet("""
+                                QProgressBar {
+                                        height: 20px;
+                                        border: 1px solid #888;
+                                        border-radius: 5px;
+                                        background-color: #e0e0e0;
+                                        text-align: center;
+                                        font-weight: bold;
+                                        color: black;
+                                }
+                                QProgressBar::chunk {
+                                        background-color: #5cb85c;
+                                        border-radius: 5px;
+                                }
+                        """)
 
         def closeEvent(self, event):
-            # Emit the custom signal on close
-            self.cancelled.emit()
-            event.accept()
+                self.cancelled.emit()
+                event.accept()
 
 class MissingBrsarDialog(QDialog):
         def __init__(self, program_data_dir, parent=None):
@@ -522,11 +253,37 @@ class MissingBrsarDialog(QDialog):
                         try:
                                 if not os.path.exists(self.program_data_dir):
                                         os.makedirs(self.program_data_dir)
+
                                 shutil.copy(file_path, self.wzsound_path)
                                 print(f"Copied WZSound.brsar to: {self.wzsound_path}")
+
+                                # Show progress dialog
+                                progress_dialog = ProgressDialog(
+                                        self,
+                                        generated_text_message="Extracting RWAR files from WZSound..."
+                                )
+                                cancel_flag = {'cancelled': False}
+                                progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
+
+                                progress_dialog.setWindowTitle("Extracting RWAR")
+                                progress_dialog.show()
+                                QApplication.processEvents()
+
+                                working_directory = os.path.dirname(sys.executable)
+                                extract_rwar_files(
+                                        self.wzsound_path,
+                                        working_directory,
+                                        target_folder="Indexes",
+                                        progress_ui=progress_dialog.ui,
+                                        cancel_flag=cancel_flag
+                                )
+
+                                progress_dialog.close()
                                 self.accept()
+
                         except Exception as e:
-                                QMessageBox.critical(self, "Error", f"Failed to copy file:\n{e}")
+                                QMessageBox.critical(self, "Error", f"Failed to copy or extract file:\n{e}")
+
 
 class MissingBrsarHDDialog(QDialog):
         def __init__(self, program_data_dir, parent=None):
@@ -552,13 +309,33 @@ class MissingBrsarHDDialog(QDialog):
                                 shutil.copy(file_path, self.hd_wzsound_path)
                                 print(f"Copied HD WZSound.brsar to: {self.hd_wzsound_path}")
 
-                                # Now call the extractor
-                                working_directory = os.path.dirname(sys.executable)
-                                extract_rwar_files(self.hd_wzsound_path, working_directory, target_folder="IndexesHD")
+                                # Show progress dialog
+                                progress_dialog = ProgressDialog(
+                                        self,
+                                        generated_text_message="Extracting RWAR files from WZSound HD..."
+                                )
+                                cancel_flag = {'cancelled': False}
+                                progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
 
+                                progress_dialog.setWindowTitle("Extracting RWAR (HD)")
+                                progress_dialog.show()
+                                QApplication.processEvents()
+
+                                working_directory = os.path.dirname(sys.executable)
+                                extract_rwar_files(
+                                        self.hd_wzsound_path,
+                                        working_directory,
+                                        target_folder="IndexesHD",
+                                        progress_ui=progress_dialog.ui,
+                                        cancel_flag=cancel_flag
+                                )
+
+                                progress_dialog.close()
                                 self.accept()
+
                         except Exception as e:
                                 QMessageBox.critical(self, "Error", f"Failed to copy or extract file:\n{e}")
+
 
 
 
@@ -713,7 +490,6 @@ class WZSPI_MainWindow(QMainWindow):
                 """)
 
                 # Connect all buttons to functions
-                self.ui.button_convert_project.clicked.connect(self.convert_project)
                 self.ui.button_load_project.clicked.connect(self.load_project)
                 self.ui.button_create_project.clicked.connect(self.create_project)
                 self.ui.button_create_instructions.clicked.connect(self.create_instructions)
@@ -724,8 +500,18 @@ class WZSPI_MainWindow(QMainWindow):
                 self.ui.button_create_brwsd.clicked.connect(self.create_brwsd)
                 self.ui.button_create_wzsound.clicked.connect(self.create_wzsound)
 
+                # Connect patch_sd to run_patch
+                self.ui.patch_sd.clicked.connect(self.run_patch)
+                self.ui.patch_hd.clicked.connect(self.handle_patch_hd_click)
+                self.ui.button_convert_project.clicked.connect(self.open_modified_input_dialog)
+
                 self.ui.list_options.itemSelectionChanged.connect(lambda: self.ui.list_project.clearSelection())
                 self.ui.list_project.itemSelectionChanged.connect(lambda: self.ui.list_options.clearSelection())
+
+                self.ui.load_sd.clicked.connect(self.open_modified_sd_wzsound)
+                self.ui.load_hd.clicked.connect(self.open_modified_hd_wzsound)
+                self.ui.button_load_brwsd_folder.clicked.connect(self.open_brwsd)
+                self.ui.button_load_instructions_folder.clicked.connect(self.open_instructions)
 
                 # Set up the project name and disable buttons by default
                 self.project_name = None
@@ -759,6 +545,390 @@ class WZSPI_MainWindow(QMainWindow):
 
                 if hasattr(self.ui, "validateButton"):
                         self.ui.validateButton.clicked.connect(self.validate_yaml)
+
+        def convert_modified(self, project_name, instruction_file):
+                project_name = format_name(project_name)
+                project_dir = os.path.join(self.working_directory, "Projects", project_name)
+                instruction_file = format_name(instruction_file)
+
+                # Step 1: Create the folder if it doesn't exist
+                try:
+                        os.makedirs(project_dir, exist_ok=True)
+                        print(f"[INFO] Created or found existing folder: {project_dir}")
+                except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to create project folder:\n{e}")
+                        return
+
+                # Step 2: Ask user to provide the modified WZSound.brsar
+                file_path, _ = QFileDialog.getOpenFileName(self, "Select Modified WZSound.brsar", "", "BRSAR Files (*.brsar)")
+                if not file_path:
+                        QMessageBox.information(self, "Cancelled", "No file selected.")
+                        return
+
+                # Step 3: Copy the selected file into the project folder and extract RWARs with progress
+                try:
+                        modified_dir = os.path.join(project_dir, "ModifiedWZSoundSD")
+                        os.makedirs(modified_dir, exist_ok=True)
+
+                        # Copy to ModifiedWZSound/WZSound.brsar
+                        dest_path = os.path.join(modified_dir, "WZSound.brsar")
+                        shutil.copy(file_path, dest_path)
+                        print(f"[INFO] Copied modified WZSound to: {dest_path}")
+
+                        # Show progress dialog
+                        progress_dialog = ProgressDialog(self, generated_text_message="Extracting RWAR files...")
+                        progress_dialog.setWindowTitle("Extracting RWAR")
+                        cancel_flag = {"cancelled": False}
+                        progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
+                        progress_dialog.show()
+                        QApplication.processEvents()
+
+                        target_folder = os.path.join("Projects", project_name, "Indexes")
+                        extract_rwar_files(
+                                dest_path,
+                                self.working_directory,
+                                target_folder=target_folder,
+                                progress_ui=progress_dialog.ui,
+                                cancel_flag=cancel_flag
+                        )
+
+                        progress_dialog.close()
+
+                except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to copy file:\n{e}")
+                        return
+
+
+                # Step 4: You can store the instruction file name, or continue processing here
+                print(f"[SUCCESS] Project setup complete for '{project_name}' with instruction file '{instruction_file}'")
+
+                # Step 5: Compare Indexes and generate instruction YAML
+                modified_indexes = os.path.join(project_dir, "Indexes")
+                original_indexes = os.path.join(self.working_directory, "Indexes")
+                instruction_output_dir = os.path.join(self.working_directory, "Instructions")
+
+                instruction_path = extract_differences_and_create_instruction(
+                        modified_folder=modified_indexes,
+                        original_folder=original_indexes,
+                        output_directory=instruction_output_dir,
+                        instruction_filename=f"{instruction_file}.yaml"
+                )
+
+                print(f"[SUCCESS] Instruction file created at: {instruction_path}")
+
+                # Step 6: Write 'instructions.yaml' in the project folder
+                instruction_list_path = os.path.join(project_dir, "instructions.yaml")
+                instruction_name_without_ext = instruction_file  # because we never added .yaml to this variable
+
+                try:
+                        with open(instruction_list_path, "w") as f:
+                                yaml.dump([instruction_name_without_ext], f, default_flow_style=False)
+                        print(f"[INFO] Wrote instructions.yaml to: {instruction_list_path}")
+                except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to write instructions.yaml:\n{e}")
+                        return
+
+                # Step 7: Generate converted BRWSD using final project name
+                self.create_brwsd_converted(project_name)
+
+        def create_brwsd_converted(self, project_name):
+                progress_dialog = ProgressDialog(
+                        self,
+                        generated_text_message="Starting BRWSD (Converted) Creation..."
+                )
+                progress_dialog.setWindowTitle("Creating BRWSD")
+                cancel_flag = {"cancelled": False}
+                progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
+                progress_dialog.show()
+                QApplication.processEvents()
+
+                extract_rwavs(self.working_directory, project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+                setup_extraction(self.working_directory, project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+                setup_extraction_converted(self.working_directory, project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+                build_brwsd_from_unmodified_rwavs(self.working_directory, project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+
+                progress_dialog.close()
+
+                dialog = SuccessDialog(self.working_directory, project_name, self)
+                dialog.exec()
+
+
+        def open_modified_input_dialog(self):
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Convert Modified")
+
+                layout = QVBoxLayout(dialog)
+
+                project_input = QLineEdit()
+                project_input.setPlaceholderText("Enter project name")
+                instruction_input = QLineEdit()
+                instruction_input.setPlaceholderText("Enter instruction file name")
+
+                submit_button = QPushButton("Submit")
+
+                layout.addWidget(QLabel("Project Name:"))
+                layout.addWidget(project_input)
+                layout.addWidget(QLabel("Instruction File Name (Should describe the types of sounds you edited):"))
+                layout.addWidget(instruction_input)
+                layout.addWidget(QLabel("Submit an SD WZSound file that IS MODIFIED with sound effects already replaced in it"))
+                layout.addWidget(submit_button)
+
+                def on_submit():
+                        project_name = project_input.text().strip()
+                        instruction_file = instruction_input.text().strip()
+
+                        if not project_name or not instruction_file:
+                                QMessageBox.warning(dialog, "Missing Input", "Both fields must be filled.")
+                                return
+
+                        dialog.accept()
+
+                        # Call your logic here using project_name and instruction_file
+                        print(f"Submitted project: {project_name}, instruction file: {instruction_file}")
+                        self.convert_modified(project_name, instruction_file)
+
+                submit_button.clicked.connect(on_submit)
+
+                dialog.exec()
+
+        def open_modified_sd_wzsound(self):
+                project_path = os.path.join(self.working_directory, "Projects", self.project_name, "ModifiedWZSoundSD")
+                if os.path.exists(project_path):
+                        subprocess.Popen(f'explorer "{project_path}"')
+                else:
+                        print("[INFO] SD WZSound file not found.")
+
+        def open_modified_hd_wzsound(self):
+                project_path = os.path.join(self.working_directory, "Projects", self.project_name, "ModifiedWZSoundHD")
+                if os.path.exists(project_path):
+                        subprocess.Popen(f'explorer "{project_path}"')
+                else:
+                        print("[INFO] HD WZSound file not found.")
+
+        def open_brwsd(self):
+                folder_path = os.path.join(self.working_directory, "Projects", self.project_name)
+                if os.path.exists(folder_path):
+                        subprocess.Popen(f'explorer "{folder_path}"')
+                else:
+                        print("[INFO] BRWSD folder not found.")
+
+        def open_instructions(self):
+                file_path = os.path.join(self.working_directory, "Releases", self.project_name)
+                if os.path.exists(file_path):
+                        subprocess.Popen(f'explorer "{file_path}"')
+                else:
+                        print("[INFO] Instructions file not found.")
+
+
+        def handle_patch_hd_click(self):
+                indexes_hd_path = os.path.join(self.working_directory, "IndexesHD")
+                if not os.path.exists(indexes_hd_path):
+                        dialog = MissingBrsarHDDialog(self.working_directory, self)
+                        if dialog.exec() != QDialog.Accepted:
+                                print("User cancelled HD WZSound selection.")
+                                return  # Skip rest if user cancels
+                        else:
+                                print("HD WZSound provided.")
+
+                # Proceed with the actual HD patch logic
+                self.run_hd_patch()
+
+        def run_hd_patch(self):
+                print("Running HD patch logic...")
+
+                progress_dialog = ProgressDialog(
+                        self,
+                        generated_text_message="Extracting RWAV files (HD)..."
+                )
+                progress_dialog.setWindowTitle("Extracting (HD)")
+                cancel_flag = {'cancelled': False}
+                progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
+
+                progress_dialog.show()
+                QApplication.processEvents()
+
+                project_name = self.project_name
+                setup_extraction_HD(
+                        self.working_directory,
+                        project_name,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
+
+                progress_dialog.close()
+
+                self.patch_hd_wzsound(self.working_directory, project_name)
+
+                progress_dialog.close()
+
+
+
+        def patch_hd_wzsound(self, working_directory, project_name):
+                def find_all_occurrences(data: bytes, pattern: bytes) -> list:
+                        indices = []
+                        start = 0
+                        while True:
+                                index = data.find(pattern, start)
+                                if index == -1:
+                                        break
+                                indices.append(index)
+                                start = index + 1
+                        return indices
+
+                project_folder = os.path.join(working_directory, "Projects", project_name)
+
+                # Step 1: Create "WZSoundHD" folder inside the project folder
+                hd_output_folder = os.path.join(project_folder, "ModifiedWZSoundHD")
+                os.makedirs(hd_output_folder, exist_ok=True)
+
+                # Step 2: Copy original HD WZSound.brsar into that folder
+                source_brsar = os.path.join(working_directory, "ProgramData", "WZSoundHD.brsar")
+                patched_brsar = os.path.join(hd_output_folder, "WZSound.brsar")
+                shutil.copy(source_brsar, patched_brsar)
+                print(f"[INFO] Copied WZSoundHD.brsar to {patched_brsar}")
+
+                # Step 3: Patch RWAVs
+                unmodified_folder = os.path.join(project_folder, "UnmodifiedRwavsHD")
+                modified_folder = os.path.join(project_folder, "ModifiedRwavs")
+
+                # Load file into memory
+                with open(patched_brsar, "rb") as f:
+                        data = bytearray(f.read())
+
+                # Prepare list of RWAVs to patch
+                rwav_files = [f for f in os.listdir(unmodified_folder) if f.endswith(".rwav")]
+                total = len(rwav_files)
+                processed = 0
+
+                # Show progress dialog
+                progress_dialog = ProgressDialog(
+                        self,
+                        generated_text_message="Patching WZSound for HD..."
+                )
+                progress_dialog.setWindowTitle("Patching RWAV Files...")
+                progress_dialog.ui.progressBar.setMaximum(total)
+                progress_dialog.show()
+                QApplication.processEvents()
+
+                QApplication.processEvents()
+
+                for filename in rwav_files:
+                        processed += 1
+
+                        if hasattr(progress_dialog.ui, "label_status"):
+                                progress_dialog.ui.label_status.setText(f"Patching {processed} of {total}: {filename}")
+                        if hasattr(progress_dialog.ui, "progressBar"):
+                                progress_dialog.ui.progressBar.setValue(processed)
+                        QApplication.processEvents()
+
+                        unmod_path = os.path.join(unmodified_folder, filename)
+                        mod_path = os.path.join(modified_folder, filename)
+
+                        if not os.path.exists(mod_path):
+                                continue  # No modified version exists
+
+                        with open(unmod_path, "rb") as f_unmod:
+                                unmod_data = f_unmod.read()
+                        with open(mod_path, "rb") as f_mod:
+                                mod_data = f_mod.read()
+
+                        if len(mod_data) > len(unmod_data):
+                                print(f"[SKIPPED] Modified RWAV '{filename}' is larger than original. Cannot safely replace.")
+                                continue
+
+                        occurrences = find_all_occurrences(data, unmod_data)
+
+                        if not occurrences:
+                                print(f"[WARNING] Could not find unmodified RWAV: {filename}")
+                                continue
+
+                        for index in occurrences:
+                                data[index:index + len(mod_data)] = mod_data
+                                remaining = len(unmod_data) - len(mod_data)
+                                data[index + len(mod_data):index + len(unmod_data)] = b'\x00' * remaining
+                                print(f"[PATCHED] Replaced RWAV: {filename} at offset {index}")
+
+                progress_dialog.close()
+
+                # Show "Writing file..." dialog
+                write_dialog = ProgressDialog(
+                        self,
+                        generated_text_message="Writing WZSound to file. Please be patient..."
+                )
+                write_dialog.setWindowTitle("Saving File")
+                write_dialog.ui.progressBar.setMaximum(0)  # Indeterminate
+                write_dialog.ui.progressBar.setValue(0)
+                write_dialog.show()
+                QApplication.processEvents()
+
+                # Save patched file
+                with open(patched_brsar, "wb") as f:
+                        f.write(data)
+
+                write_dialog.close()
+                self.show_confirmation_hd()
+
+                print("[SUCCESS] WZSound.brsar HD patching complete.")
+
+        def run_patch(self):
+                progress_dialog = ProgressDialog(
+                        self,
+                        generated_text_message="Applying patch to WZSound.brsar..."
+                )
+                cancel_flag = {'cancelled': False}
+                progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
+
+                progress_dialog.setWindowTitle("Applying Patch")
+                progress_dialog.show()
+                QApplication.processEvents()
+
+                completed = apply_wzsound_patch(
+                        self.working_directory,
+                        self.project_name,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
+
+                progress_dialog.close()
+                if completed:
+                        self.show_confirmation()
+
+
+        def show_confirmation(self):
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setWindowTitle("WZSound Patch Applied")
+            msg_box.setText("Successfully applied WZSound patch.")
+
+            open_button = msg_box.addButton("Open WZSound Location", QMessageBox.AcceptRole)
+            close_button = msg_box.addButton("Close", QMessageBox.RejectRole)
+
+            msg_box.exec()
+
+            if msg_box.clickedButton() == open_button:
+                wzsound_folder = os.path.join(self.working_directory, "Projects", self.project_name, "ModifiedWZSoundSD")
+                if os.path.exists(wzsound_folder):
+                    subprocess.Popen(f'explorer "{wzsound_folder}"')  # Windows only
+                else:
+                    QMessageBox.warning(self, "Folder Not Found", f"Folder does not exist:\n{wzsound_folder}")
+
+        def show_confirmation_hd(self):
+                msg_box = QMessageBox(self)
+                msg_box.setIcon(QMessageBox.Information)
+                msg_box.setWindowTitle("WZSound HD Patch Applied")
+                msg_box.setText("Successfully applied WZSound HD patch.")
+
+                open_button = msg_box.addButton("Open WZSoundHD Location", QMessageBox.AcceptRole)
+                close_button = msg_box.addButton("Close", QMessageBox.RejectRole)
+
+                msg_box.exec()
+
+                if msg_box.clickedButton() == open_button:
+                        wzsound_hd_folder = os.path.join(self.working_directory, "Projects", self.project_name, "ModifiedWZSoundHD")
+                        if os.path.exists(wzsound_hd_folder):
+                                subprocess.Popen(f'explorer "{wzsound_hd_folder}"')  # Windows only
+                        else:
+                                QMessageBox.warning(self, "Folder Not Found", f"Folder does not exist:\n{wzsound_hd_folder}")
 
 
         def convert_project(self):
@@ -1002,21 +1172,33 @@ class WZSPI_MainWindow(QMainWindow):
                 self.setup_project()
 
         def create_brwsd(self):
-                extract_rwavs(self.working_directory, self.project_name)
-                setup_extraction(self.working_directory, self.project_name)
-                build_brwsd_from_unmodified_rwavs(self.working_directory, self.project_name)
-                print("Create BRWSD clicked")
+                progress_dialog = ProgressDialog(self, generated_text_message="Starting BRWSD Creation...")
+                progress_dialog.setWindowTitle("Creating BRWSD")
+                cancel_flag = {"cancelled": False}
+                progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
+                progress_dialog.show()
+                QApplication.processEvents()
+
+                extract_rwavs(self.working_directory, self.project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+                setup_extraction(self.working_directory, self.project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+                build_brwsd_from_unmodified_rwavs(self.working_directory, self.project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+
+                progress_dialog.close()
 
                 # Show the report dialog using your new class
                 dialog = SuccessDialog(self.working_directory, self.project_name, self)
                 dialog.exec()
 
 
+
         def create_wzsound(self):
             extract_rwavs(self.working_directory, self.project_name)
             too_big_list, exact_match_list = check_modified_vs_unmodified(self.working_directory, self.project_name)
 
-            progress_dialog = ProgressDialog(self)
+            progress_dialog = ProgressDialog(
+                    self,
+                    generated_text_message="Creating patch file, please wait..."
+            )
             cancel_flag = {'cancelled': False}
 
             # Connect close signal to update cancel_flag
@@ -1026,15 +1208,16 @@ class WZSPI_MainWindow(QMainWindow):
             QApplication.processEvents()
 
             completed = create_patch_file(
-                self.working_directory,
-                self.project_name,
-                too_big_list,
-                exact_match_list,
-                progress_ui=progress_dialog.ui,
-                cancel_flag=cancel_flag
+                    self.working_directory,
+                    self.project_name,
+                    too_big_list,
+                    exact_match_list,
+                    progress_ui=progress_dialog.ui,
+                    cancel_flag=cancel_flag
             )
 
             progress_dialog.close()
+
 
             if not completed:
                 QMessageBox.critical(self, "Cancelled", "Operation cancelled by user.")
@@ -1091,12 +1274,58 @@ class WZSPI_MainWindow(QMainWindow):
 
                 print(f"Setup complete. {self.ui.list_project.count()} in project, {self.ui.list_options.count()} available.")
 
+
         def update_project_buttons_state(self):
-                is_enabled = bool(self.project_name)
+                is_enabled = bool(self.project_name) and bool(self.working_directory)
 
                 self.ui.button_move.setEnabled(is_enabled)
-                self.ui.button_create_brwsd.setEnabled(is_enabled)
-                self.ui.button_create_wzsound.setEnabled(is_enabled)
+
+                if is_enabled:
+                        working_directory = self.working_directory
+                        project_name = self.project_name
+
+                        # Paths
+                        brwsd_path = os.path.join(working_directory, "Projects", project_name, "your_project.brwsd")
+                        instructions_path = os.path.join(working_directory, "Projects", project_name, "instructions.yaml")
+                        hd_wzsound_path = os.path.join(working_directory, "Projects", project_name, "ModifiedWZSoundHD", "WZSound.brsar")
+                        sd_wzsound_path = os.path.join(working_directory, "Projects", project_name, "ModifiedWZSoundSD", "WZSound.brsar")
+                        patch_path = os.path.join(working_directory, "Releases", project_name, "WZSoundPatchInstructions", "wzsound_instructions.patch")
+
+                        # Existence checks
+                        brwsd_exists = os.path.exists(brwsd_path)
+                        patch_exists = os.path.exists(patch_path)
+                        hd_exists = os.path.exists(hd_wzsound_path)
+                        sd_exists = os.path.exists(sd_wzsound_path)
+
+                        instructions_exists = False
+                        if os.path.exists(instructions_path):
+                                with open(instructions_path, "r", encoding="utf-8") as f:
+                                        content = f.read().strip()
+                                        if content and content != "[]":
+                                                instructions_exists = True
+
+                        self.ui.button_load_brwsd_folder.setEnabled(brwsd_exists)
+                        self.ui.patch_hd.setEnabled(brwsd_exists)
+                        self.ui.button_create_wzsound.setEnabled(brwsd_exists)
+
+                        self.ui.button_load_instructions_folder.setEnabled(patch_exists)
+                        self.ui.patch_sd.setEnabled(patch_exists)
+                        self.ui.load_sd.setEnabled(sd_exists)
+                        self.ui.load_hd.setEnabled(hd_exists)
+
+                        self.ui.button_create_brwsd.setEnabled(instructions_exists)
+
+                else:
+                        # Disable all dependent buttons if project_name or working_directory is None
+                        self.ui.button_load_brwsd_folder.setEnabled(False)
+                        self.ui.patch_hd.setEnabled(False)
+                        self.ui.button_load_instructions_folder.setEnabled(False)
+                        self.ui.patch_sd.setEnabled(False)
+                        self.ui.load_sd.setEnabled(False)
+                        self.ui.load_hd.setEnabled(False)
+                        self.ui.button_create_brwsd.setEnabled(False)
+                        self.ui.button_create_wzsound.setEnabled(False)
+
 
 if __name__ == "__main__":
         app = QApplication(sys.argv)
