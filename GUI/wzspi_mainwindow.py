@@ -674,6 +674,11 @@ class WZSPI_MainWindow(QMainWindow):
                 progress_dialog.close()
 
                 dialog = SuccessDialog(self.working_directory, project_name, self)
+
+                self.project_name = project_name
+                self.ui.label_project.setText(self.project_name.replace("_", " ").title())
+                self.setup_project()
+
                 dialog.exec()
 
 
