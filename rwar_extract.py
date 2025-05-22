@@ -2,18 +2,30 @@ import os
 import struct
 import hashlib
 
-def extract_rwar_files(input_file, output_filepath, target_folder="Indexes"):
+from PySide6.QtWidgets import QApplication
+
+def extract_rwar_files(input_file, output_filepath, target_folder="Indexes", progress_ui=None, cancel_flag=None):
 	output_folder = os.path.join(output_filepath, target_folder)
 	os.makedirs(output_folder, exist_ok=True)
 
 	with open(input_file, "rb") as f:
 		data = f.read()
 
+	# Count how many RWARs total (for progress bar)
+	total_rwars = data.count(b'RWAR')
+	if total_rwars == 0:
+		total_rwars = 1  # Avoid division by zero
+
 	index = 0
 	file_id = 0
 	total_found = 0
+	processed = 0
 
 	while index < len(data):
+		if cancel_flag and cancel_flag.get("cancelled"):
+			print("RWAR extraction cancelled by user.")
+			return
+
 		index = data.find(b'RWAR', index)
 		if index == -1:
 			break
@@ -45,31 +57,58 @@ def extract_rwar_files(input_file, output_filepath, target_folder="Indexes"):
 			print(f"Skipped RWAR at {index} (no RWAV found)")
 
 		index = end_offset
+		processed += 1
+
+		if progress_ui:
+			progress = int((processed / total_rwars) * 100)
+			progress_ui.progressBar.setValue(progress)
+			QApplication.processEvents()
 
 	print(f"\nTotal RWAR files with RWAV extracted: {total_found}")
-	remove_duplicate_files(output_folder)
 
+	# Reset progress before duplicate check
+	if progress_ui:
+		progress_ui.progressBar.setValue(0)
+		if hasattr(progress_ui, "generated_text"):
+			progress_ui.generated_text.setText("Removing duplicate RWAR files...")
+		QApplication.processEvents()
 
-def remove_duplicate_files(folder):
-    print("\nChecking for duplicate files...")
-    hash_map = {}
-    deleted = 0
+	remove_duplicate_files(output_folder, progress_ui, cancel_flag)
 
-    for filename in os.listdir(folder):
-        if not filename.endswith(".brwsd"):
-            continue
+def remove_duplicate_files(folder, progress_ui=None, cancel_flag=None):
+	print("\nChecking for duplicate files...")
+	hash_map = {}
+	deleted = 0
 
-        full_path = os.path.join(folder, filename)
+	all_files = [f for f in os.listdir(folder) if f.endswith(".brwsd")]
+	total = len(all_files)
+	processed = 0
 
-        with open(full_path, "rb") as f:
-            file_data = f.read()
-            file_hash = hashlib.md5(file_data).hexdigest()
+	for filename in all_files:
+		if cancel_flag and cancel_flag.get("cancelled"):
+			print("Duplicate cleanup cancelled by user.")
+			return
 
-        if file_hash in hash_map:
-            print(f"Duplicate found: {filename} is a copy of {hash_map[file_hash]}. Deleting...")
-            os.remove(full_path)
-            deleted += 1
-        else:
-            hash_map[file_hash] = filename
+		full_path = os.path.join(folder, filename)
 
-    print(f"Duplicate removal complete. {deleted} files deleted.")
+		with open(full_path, "rb") as f:
+			file_data = f.read()
+			file_hash = hashlib.md5(file_data).hexdigest()
+
+		if file_hash in hash_map:
+			print(f"Duplicate found: {filename} is a copy of {hash_map[file_hash]}. Deleting...")
+			os.remove(full_path)
+			deleted += 1
+		else:
+			hash_map[file_hash] = filename
+
+		processed += 1
+		if progress_ui:
+			percent = int((processed / total) * 100)
+			progress_ui.progressBar.setValue(percent)
+			if hasattr(progress_ui, "label_status"):
+				progress_ui.label_status.setText(f"Checking: {filename}")
+			QApplication.processEvents()
+
+	print(f"Duplicate removal complete. {deleted} files deleted.")
+

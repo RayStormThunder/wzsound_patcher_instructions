@@ -5,7 +5,6 @@
         "missing_brsar_dialog.ui",
         "report.ui",
         "success.ui",
-        "progress.ui",
-        "convert.ui"
+        "progress.ui"
     ]
 }

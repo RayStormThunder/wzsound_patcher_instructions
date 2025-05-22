@@ -1,4 +1,3 @@
-pyside6-uic convert.ui -o ui_convert.py
 pyside6-uic form.ui -o ui_form.py
 pyside6-uic missing_brsar_dialog.ui -o ui_missing_brsar_dialog.py
 pyside6-uic report.ui -o ui_report.py
