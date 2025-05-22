@@ -283,10 +283,24 @@ def setup_extraction_converted(working_directory, current_project, progress_ui=N
 		cancel_flag=cancel_flag
 	)
 
+	# Cleanup step
+	unmodified_path = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
+	modified_path = os.path.join(working_directory, "Projects", current_project, "ModifiedRwavs")
+
+	try:
+		unmodified_files = set(os.listdir(unmodified_path))
+		for filename in os.listdir(modified_path):
+			if filename not in unmodified_files:
+				file_to_delete = os.path.join(modified_path, filename)
+				os.remove(file_to_delete)
+	except Exception as e:
+		print(f"[ERROR] During cleanup of ModifiedRwavs: {e}")
+
 	if progress_ui:
 		progress_ui.generated_text.setText("Converted extraction complete.")
 		progress_ui.progressBar.setValue(100)
 		QApplication.processEvents()
+
 
 
 def adjust_instructions_for_extras(instructions: dict) -> dict:

@@ -567,7 +567,7 @@ class WZSPI_MainWindow(QMainWindow):
 
                 # Step 3: Copy the selected file into the project folder and extract RWARs with progress
                 try:
-                        modified_dir = os.path.join(project_dir, "ModifiedWZSoundSD")
+                        modified_dir = os.path.join(project_dir, "InputWZSoundSD")
                         os.makedirs(modified_dir, exist_ok=True)
 
                         # Copy to ModifiedWZSound/WZSound.brsar
@@ -622,7 +622,7 @@ class WZSPI_MainWindow(QMainWindow):
 
                 try:
                         with open(instruction_list_path, "w") as f:
-                                yaml.dump([instruction_name_without_ext], f, default_flow_style=False)
+                                yaml.dump([instruction_name_without_ext.replace("_", " ")], f, default_flow_style=False)
                         print(f"[INFO] Wrote instructions.yaml to: {instruction_list_path}")
                 except Exception as e:
                         QMessageBox.critical(self, "Error", f"Failed to write instructions.yaml:\n{e}")
@@ -948,7 +948,7 @@ class WZSPI_MainWindow(QMainWindow):
                         QMessageBox.information(self, "No Projects", "No projects found. Create one first.")
                         return
 
-                # Get list of project folders
+                # Get list of project folders and sort them by last modified time (descending)
                 project_folders = [
                         name for name in os.listdir(projects_dir)
                         if os.path.isdir(os.path.join(projects_dir, name))
@@ -957,6 +957,12 @@ class WZSPI_MainWindow(QMainWindow):
                 if not project_folders:
                         QMessageBox.information(self, "No Projects", "No project folders found in the Projects directory.")
                         return
+
+                # Sort by last modified time (most recent first)
+                project_folders.sort(
+                        key=lambda name: os.path.getmtime(os.path.join(projects_dir, name)),
+                        reverse=True
+                )
 
                 # Map formatted names (with spaces) to real folder names
                 project_map = {folder.replace("_", " "): folder for folder in project_folders}
@@ -979,6 +985,7 @@ class WZSPI_MainWindow(QMainWindow):
                         print(f"Loaded project: {self.project_name}")
                 else:
                         print("Project loading canceled.")
+
 
         def create_project(self):
                 print("Create Project clicked")
