@@ -18,8 +18,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QGridLayout,
     QHBoxLayout, QLabel, QLayout, QListWidget,
     QListWidgetItem, QMainWindow, QPushButton, QSizePolicy,
-    QStackedWidget, QStatusBar, QTextEdit, QVBoxLayout,
-    QWidget)
+    QStackedWidget, QStatusBar, QTextBrowser, QTextEdit,
+    QVBoxLayout, QWidget)
 
 class Ui_WZSPI_MainWindow(object):
     def setupUi(self, WZSPI_MainWindow):
@@ -55,6 +55,14 @@ class Ui_WZSPI_MainWindow(object):
         self.horizontal_2_main_content = QHBoxLayout()
         self.horizontal_2_main_content.setSpacing(4)
         self.horizontal_2_main_content.setObjectName(u"horizontal_2_main_content")
+        self.description_text = QTextBrowser(self.centralwidget)
+        self.description_text.setObjectName(u"description_text")
+        self.description_text.setMinimumSize(QSize(300, 0))
+        self.description_text.setMaximumSize(QSize(300, 16777215))
+        self.description_text.setReadOnly(True)
+
+        self.horizontal_2_main_content.addWidget(self.description_text)
+
         self.stacked_pages = QStackedWidget(self.centralwidget)
         self.stacked_pages.setObjectName(u"stacked_pages")
         self.page_1_pick_instructions = QWidget()
@@ -166,19 +174,6 @@ class Ui_WZSPI_MainWindow(object):
 
         self.vertical_description = QVBoxLayout()
         self.vertical_description.setObjectName(u"vertical_description")
-        self.text_description_pick = QTextEdit(self.frame_pick)
-        self.text_description_pick.setObjectName(u"text_description_pick")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.text_description_pick.sizePolicy().hasHeightForWidth())
-        self.text_description_pick.setSizePolicy(sizePolicy2)
-        self.text_description_pick.setMinimumSize(QSize(0, 100))
-        self.text_description_pick.setMaximumSize(QSize(16777215, 140))
-        self.text_description_pick.setReadOnly(True)
-
-        self.vertical_description.addWidget(self.text_description_pick)
-
 
         self.verticalLayout_6.addLayout(self.vertical_description)
 
@@ -221,14 +216,6 @@ class Ui_WZSPI_MainWindow(object):
         self.text_yaml_edit.setTabStopDistance(10.000000000000000)
 
         self.verticalLayout_12.addWidget(self.text_yaml_edit)
-
-        self.text_description_edit = QTextEdit(self.frame_edit)
-        self.text_description_edit.setObjectName(u"text_description_edit")
-        self.text_description_edit.setMinimumSize(QSize(0, 100))
-        self.text_description_edit.setMaximumSize(QSize(16777215, 140))
-        self.text_description_edit.setReadOnly(True)
-
-        self.verticalLayout_12.addWidget(self.text_description_edit)
 
 
         self.vertical_edit.addWidget(self.frame_edit)
@@ -377,8 +364,8 @@ class Ui_WZSPI_MainWindow(object):
 
         self.horizontal_2_main_content.addLayout(self.vertical_create)
 
-        self.horizontal_2_main_content.setStretch(0, 3)
-        self.horizontal_2_main_content.setStretch(1, 1)
+        self.horizontal_2_main_content.setStretch(1, 3)
+        self.horizontal_2_main_content.setStretch(2, 1)
 
         self.vertical_main.addLayout(self.horizontal_2_main_content)
 
@@ -407,30 +394,9 @@ class Ui_WZSPI_MainWindow(object):
         self.button_edit_instructions.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Edit RWAV Extraction Instructions", None))
         self.label_options.setText(QCoreApplication.translate("WZSPI_MainWindow", u"All Options", None))
         self.button_move.setText(QCoreApplication.translate("WZSPI_MainWindow", u"<-Move->", None))
-        self.label_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Your Project", None))
-        self.text_description_pick.setHtml(QCoreApplication.translate("WZSPI_MainWindow", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
-"<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\n"
-"p, li { white-space: pre-wrap; }\n"
-"hr { height: 1px; border-width: 0; }\n"
-"li.unchecked::marker { content: \"\\2610\"; }\n"
-"li.checked::marker { content: \"\\2612\"; }\n"
-"</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">This section controls what RWAV files you want to edit in your project. You will see a list of groups of sound effects in &quot;All Options.&quot; Those are a collection of sound effects to extract. You can select the ones you want and click &quot;&lt;-Move-&gt;&quot; to move it to &quot;Your Project.&quot; Once you have selected all the RWAV files you want to extract. Move to the &quot;Create SD Proj"
-                        "ect BRWSD&quot; step.<br /><br />If you want to extract sound effects that aren't specified by &quot;All Options&quot; you can Create or Edit your own instructions by hitting the appropiate button.</p></body></html>", None))
+        self.label_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"NO PROJECT LOADED", None))
         self.button_save_changes.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Save Changes", None))
         self.button_cancel_changes.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Cancel Changes", None))
-        self.text_description_edit.setHtml(QCoreApplication.translate("WZSPI_MainWindow", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
-"<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\n"
-"p, li { white-space: pre-wrap; }\n"
-"hr { height: 1px; border-width: 0; }\n"
-"li.unchecked::marker { content: \"\\2610\"; }\n"
-"li.checked::marker { content: \"\\2612\"; }\n"
-"</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Above is a YAML file. You can define what RWAV files you want to extract when this YAML is selected. If you go into the &quot;Indexes&quot; folder. You will see a bunch of BRWSD files. These are a collection of RWAV files. You extract a specific RWAV by stating the BRWSD you want to pull from and the Audio number.</p>\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-l"
-                        "eft:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Go to the 2nd tab of the following spreadsheet for documentation of indexes:</p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">https://docs.google.com/spreadsheets/d/1DCLMLXRMok6Iyk0BDTjtdBkzT1k1zQvzSfZXEwR0kiE/edit?gid=1359457321#gid=1359457321</p></body></html>", None))
         self.button_create_brwsd.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create SD Project BRWSD", None))
         self.button_load_brwsd_folder.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Load Project Folder", None))
         self.label_description_brwsd.setHtml(QCoreApplication.translate("WZSPI_MainWindow", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
@@ -469,10 +435,10 @@ class Ui_WZSPI_MainWindow(object):
 "li.unchecked::marker { content: \"\\2610\"; }\n"
 "li.checked::marker { content: \"\\2612\"; }\n"
 "</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">This patches your RWAVs from your BRWSD Project into an SD WZSound.</p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">This patches your RWAVs from your WZSound Patcher Instructions into an SD WZSound.</p>\n"
 "<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; font-style:ita"
-                        "lic; text-decoration: underline;\">Patch to SD</span> Requirements:</p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700;"
+                        " font-style:italic; text-decoration: underline;\">Patch to SD</span> Requirements:</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Moved at least one instruction file to the right</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Created BRWSD Project</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Created WZSound Patcher Instructions</p></body></html>", None))

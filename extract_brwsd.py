@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QApplication
 def extract_rwavs(file_path, project_name, progress_ui=None, cancel_flag=None):
 	project_folder = os.path.join(file_path, "Projects", project_name)
 	brwsd_path = os.path.join(project_folder, "your_project.brwsd")
-	unmod_rwav_folder = os.path.join(project_folder, "UnmodifiedRwavs")
+	unmod_rwav_folder = os.path.join(project_folder, "UnmodifiedRwavsSD")
 	mod_rwav_folder = os.path.join(project_folder, "ModifiedRwavs")
 
 	if not os.path.exists(brwsd_path):
@@ -50,7 +50,7 @@ def extract_rwavs(file_path, project_name, progress_ui=None, cancel_flag=None):
 
 		if progress_ui:
 			progress_ui.progressBar.setValue(int((index / total) * 100))
-			progress_ui.generated_text.setText(f"Extracting RWAV {index}/{total}")
+			progress_ui.generated_text.setText(f"Extracting RWAVs")
 			QApplication.processEvents()
 
 	if index < total:
@@ -61,7 +61,7 @@ def extract_rwavs(file_path, project_name, progress_ui=None, cancel_flag=None):
 
 def check_modified_vs_unmodified(file_path, project_name):
 	project_folder = os.path.join(file_path, "Projects", project_name)
-	unmod_folder = os.path.join(project_folder, "UnmodifiedRwavs")
+	unmod_folder = os.path.join(project_folder, "UnmodifiedRwavsSD")
 	mod_folder = os.path.join(project_folder, "ModifiedRwavs")
 
 	too_big = []

@@ -4,7 +4,7 @@ import hashlib
 
 from PySide6.QtWidgets import QApplication
 
-def extract_rwar_files(input_file, output_filepath, target_folder="Indexes", progress_ui=None, cancel_flag=None):
+def extract_rwar_files(input_file, output_filepath, target_folder="IndexesSD", progress_ui=None, cancel_flag=None):
 	output_folder = os.path.join(output_filepath, target_folder)
 	os.makedirs(output_folder, exist_ok=True)
 

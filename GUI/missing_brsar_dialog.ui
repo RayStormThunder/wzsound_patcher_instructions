@@ -17,7 +17,7 @@
    <item>
     <widget class="QLabel" name="label_error">
      <property name="text">
-      <string>You don't have a WZSound.brsar imported. Please import an unmodified Skyward Sword SD WZSound.brsar!</string>
+      <string>You don't have an SD WZSound.brsar imported. Please import an unmodified Skyward Sword SD WZSound.brsar!</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>

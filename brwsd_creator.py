@@ -116,7 +116,7 @@ def combine_rwav_files_to_brwsd(rwav_folder, mod_folder, output_file):
 		print(f"Created {output_file} with combined RWAV files and headers.")
 
 def build_brwsd_from_unmodified_rwavs(working_directory, project_folder, progress_ui=None, cancel_flag=None):
-	unmod_folder = os.path.join(working_directory, "Projects", project_folder, "UnmodifiedRwavs")
+	unmod_folder = os.path.join(working_directory, "Projects", project_folder, "UnmodifiedRwavsSD")
 	mod_folder = os.path.join(working_directory, "Projects", project_folder, "ModifiedRwavs")
 	output_brwsd = os.path.join(working_directory, "Projects", project_folder, "your_project.brwsd")
 	base_blank = os.path.join(working_directory, "ProgramData", "BaseBlankFile.brwsd")

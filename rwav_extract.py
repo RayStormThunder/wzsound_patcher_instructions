@@ -59,7 +59,7 @@ def parse_instruction_value(value):
   return [int(value)]
 
 def extract_rwav_from_instructions(
-	working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavs",
+	working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavsSD",
 	progress_ui=None, cancel_flag=None
 ):
 	index_folder = target_path
@@ -248,7 +248,7 @@ def read_project_instructions(filepath, folder_name):
 def setup_extraction(working_directory, current_project, progress_ui=None, cancel_flag=None):
 	entries = read_project_instructions(working_directory, current_project)
 	instructions = merge_yaml_rules(working_directory, entries)
-	index_folder = os.path.join(working_directory, "Indexes")
+	index_folder = os.path.join(working_directory, "IndexesSD")
 	extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder, progress_ui=progress_ui, cancel_flag=cancel_flag)
 
 	if progress_ui:
@@ -256,7 +256,7 @@ def setup_extraction(working_directory, current_project, progress_ui=None, cance
 		progress_ui.progressBar.setValue(0)
 		QApplication.processEvents()
 
-	output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
+	output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavsSD")
 	delete_duplicate_rwavs(output_folder, progress_ui=progress_ui, cancel_flag=cancel_flag)
 
 def setup_extraction_converted(working_directory, current_project, progress_ui=None, cancel_flag=None):
@@ -268,7 +268,7 @@ def setup_extraction_converted(working_directory, current_project, progress_ui=N
 	instructions = merge_yaml_rules(working_directory, entries)
 
 	if progress_ui:
-		progress_ui.generated_text.setText("Extracting RWAVs from Converted Indexes...")
+		progress_ui.generated_text.setText("Extracting RWAVs from Modified Indexes...")
 		progress_ui.progressBar.setValue(0)
 		QApplication.processEvents()
 
@@ -284,7 +284,7 @@ def setup_extraction_converted(working_directory, current_project, progress_ui=N
 	)
 
 	# Cleanup step
-	unmodified_path = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
+	unmodified_path = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavsSD")
 	modified_path = os.path.join(working_directory, "Projects", current_project, "ModifiedRwavs")
 
 	try:

@@ -10,7 +10,7 @@ def create_patch_file(working_directory, project_name, too_big_list, exact_match
 	def clean_filename(name):
 		return name.split(" ")[0]
 
-	unmod_folder = os.path.join(working_directory, "Projects", project_name, "UnmodifiedRwavs")
+	unmod_folder = os.path.join(working_directory, "Projects", project_name, "UnmodifiedRwavsSD")
 	mod_folder = os.path.join(working_directory, "Projects", project_name, "ModifiedRwavs")
 	wzsound_path = os.path.join(working_directory, "ProgramData", "WZSound.brsar")
 	output_folder = os.path.join(working_directory, "Releases", project_name, "WZSoundPatchInstructions")

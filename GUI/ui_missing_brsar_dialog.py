@@ -45,7 +45,7 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         Dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Dialog", None))
-        self.label_error.setText(QCoreApplication.translate("Dialog", u"You don't have a WZSound.brsar imported. Please import an unmodified Skyward Sword SD WZSound.brsar!", None))
+        self.label_error.setText(QCoreApplication.translate("Dialog", u"You don't have an SD WZSound.brsar imported. Please import an unmodified Skyward Sword SD WZSound.brsar!", None))
         self.button_error.setText(QCoreApplication.translate("Dialog", u"Import WZSound.brsar", None))
     # retranslateUi
 
