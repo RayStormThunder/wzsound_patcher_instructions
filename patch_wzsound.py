@@ -20,7 +20,6 @@ def apply_wzsound_patch(working_directory, project_name, progress_ui=None, cance
 		return
 
 	shutil.copy2(source_brsar, target_brsar)
-	print(f"[INFO] Copied WZSound.brsar to: {target_brsar}")
 
 	# Find .patch file
 	for file in os.listdir(patch_folder):
@@ -58,7 +57,6 @@ def apply_wzsound_patch(working_directory, project_name, progress_ui=None, cance
 
 			brsar_file.seek(offset)
 			brsar_file.write(rwav_data)
-			print(f"[INFO] Inserted {rwav_filename} at {offset_hex}")
 
 			# Update progress
 			processed += 1

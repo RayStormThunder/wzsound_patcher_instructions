@@ -27,7 +27,6 @@ def delete_duplicate_rwavs(output_folder, progress_ui=None, cancel_flag=None):
 
 			if hash_digest in seen:
 				duplicates_to_delete.append(file_path)
-				print(f"Marked duplicate: {filename} (same as {seen[hash_digest]})")
 			else:
 				seen[hash_digest] = filename
 
@@ -42,13 +41,9 @@ def delete_duplicate_rwavs(output_folder, progress_ui=None, cancel_flag=None):
 	for file_path in duplicates_to_delete:
 		try:
 			os.remove(file_path)
-			print(f"Deleted duplicate: {os.path.basename(file_path)}")
 			removed += 1
 		except PermissionError:
 			print(f"Could not delete (locked): {os.path.basename(file_path)}")
-
-	print(f"Removed {removed} duplicate RWAV files." if removed else "No duplicates removed.")
-
 
 def parse_instruction_value(value):
   if value == 'All':
@@ -59,7 +54,7 @@ def parse_instruction_value(value):
   return [int(value)]
 
 def extract_rwav_from_instructions(
-	working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavs",
+	working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavsSD",
 	progress_ui=None, cancel_flag=None
 ):
 	index_folder = target_path
@@ -132,8 +127,6 @@ def extract_rwav_from_instructions(
 
 				with open(out_path, 'wb') as out_f:
 					out_f.write(extracted_data)
-
-				print(f"Extracted {out_filename}")
 
 			processed += 1
 			if progress_ui:
@@ -248,7 +241,7 @@ def read_project_instructions(filepath, folder_name):
 def setup_extraction(working_directory, current_project, progress_ui=None, cancel_flag=None):
 	entries = read_project_instructions(working_directory, current_project)
 	instructions = merge_yaml_rules(working_directory, entries)
-	index_folder = os.path.join(working_directory, "Indexes")
+	index_folder = os.path.join(working_directory, "IndexesSD")
 	extract_rwav_from_instructions(working_directory, current_project, instructions, index_folder, progress_ui=progress_ui, cancel_flag=cancel_flag)
 
 	if progress_ui:
@@ -256,7 +249,7 @@ def setup_extraction(working_directory, current_project, progress_ui=None, cance
 		progress_ui.progressBar.setValue(0)
 		QApplication.processEvents()
 
-	output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
+	output_folder = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavsSD")
 	delete_duplicate_rwavs(output_folder, progress_ui=progress_ui, cancel_flag=cancel_flag)
 
 def setup_extraction_converted(working_directory, current_project, progress_ui=None, cancel_flag=None):
@@ -268,7 +261,7 @@ def setup_extraction_converted(working_directory, current_project, progress_ui=N
 	instructions = merge_yaml_rules(working_directory, entries)
 
 	if progress_ui:
-		progress_ui.generated_text.setText("Extracting RWAVs from Converted Indexes...")
+		progress_ui.generated_text.setText("Extracting RWAVs from Modified Indexes...")
 		progress_ui.progressBar.setValue(0)
 		QApplication.processEvents()
 
@@ -284,7 +277,7 @@ def setup_extraction_converted(working_directory, current_project, progress_ui=N
 	)
 
 	# Cleanup step
-	unmodified_path = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavs")
+	unmodified_path = os.path.join(working_directory, "Projects", current_project, "UnmodifiedRwavsSD")
 	modified_path = os.path.join(working_directory, "Projects", current_project, "ModifiedRwavs")
 
 	try:
@@ -367,14 +360,12 @@ def adjust_instructions_for_extras(instructions: dict) -> dict:
 
 def setup_extraction_HD(working_directory, current_project, progress_ui=None, cancel_flag=None):
 	entries = read_project_instructions(working_directory, current_project)
-	print(entries)
 
 	if progress_ui and hasattr(progress_ui, "generated_text"):
 		progress_ui.generated_text.setText("Merging instructions for HD extraction...")
 		QApplication.processEvents()
 
 	instructions = merge_yaml_rules(working_directory, entries)
-	print(instructions)
 
 	instructions = adjust_instructions_for_extras(instructions)
 

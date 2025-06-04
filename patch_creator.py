@@ -10,7 +10,7 @@ def create_patch_file(working_directory, project_name, too_big_list, exact_match
 	def clean_filename(name):
 		return name.split(" ")[0]
 
-	unmod_folder = os.path.join(working_directory, "Projects", project_name, "UnmodifiedRwavs")
+	unmod_folder = os.path.join(working_directory, "Projects", project_name, "UnmodifiedRwavsSD")
 	mod_folder = os.path.join(working_directory, "Projects", project_name, "ModifiedRwavs")
 	wzsound_path = os.path.join(working_directory, "ProgramData", "WZSound.brsar")
 	output_folder = os.path.join(working_directory, "Releases", project_name, "WZSoundPatchInstructions")
@@ -59,12 +59,14 @@ def create_patch_file(working_directory, project_name, too_big_list, exact_match
 	instructions.sort(key=lambda x: int(x[0], 16))
 	os.makedirs(output_folder, exist_ok=True)
 
-	with open(output_file, "w") as out_file:
-		for hex_index, filename in instructions:
-			out_file.write(f"{hex_index}:{filename}\n")
-
-	print(f"WZSound patch instructions saved to: {output_file}")
-
+	# Cleanup old .rwav and .patch files
+	for file in os.listdir(output_folder):
+		if file.endswith(".rwav") or file.endswith(".patch"):
+			try:
+				os.remove(os.path.join(output_folder, file))
+			except Exception as e:
+				print(f"Failed to remove {file}: {e}")
+				
 	# Only copy modified files that:
 	# 1. Exist in unmodified folder
 	# 2. Are smaller than the corresponding unmodified file
@@ -79,5 +81,9 @@ def create_patch_file(working_directory, project_name, too_big_list, exact_match
 			dst_path = os.path.join(output_folder, filename)
 			shutil.copy2(mod_path, dst_path)
 
-	print(f"Filtered ModifiedRwavs copied to: {output_folder}")
+	with open(output_file, "w") as out_file:
+		for hex_index, filename in instructions:
+			if os.path.exists(os.path.join(output_folder, filename)):
+				out_file.write(f"{hex_index}:{filename}\n")
+
 	return True  # Indicate completed successfully

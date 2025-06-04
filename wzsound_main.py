@@ -25,23 +25,32 @@ INSTRUCTIONS_FOLDER = os.path.join(working_directory, "Instructions")
 bundled_folders = ["Instructions", "ProgramData"]
 
 def extract_folders():
-    for folder in bundled_folders:
-        source = os.path.join(sys._MEIPASS, folder) if getattr(sys, 'frozen', False) else folder
-        destination = os.path.join(working_directory, folder)
+	for folder in bundled_folders:
+		source_folder = os.path.join(sys._MEIPASS, folder) if getattr(sys, 'frozen', False) else folder
+		dest_folder = os.path.join(working_directory, folder)
 
-        if not os.path.exists(destination):
-            shutil.copytree(source, destination)
-            print(f"Extracted folder: {folder}")
-        else:
-            print(f"Skipped existing folder: {folder}")
+		# Ensure destination folder exists
+		if not os.path.exists(dest_folder):
+			os.makedirs(dest_folder)
+
+		# Copy individual files if they don't already exist
+		for item in os.listdir(source_folder):
+			source_path = os.path.join(source_folder, item)
+			dest_path = os.path.join(dest_folder, item)
+
+			if not os.path.exists(dest_path):
+				if os.path.isdir(source_path):
+					shutil.copytree(source_path, dest_path)
+					print(f"Copied folder: {item} -> {folder}")
+				else:
+					shutil.copy2(source_path, dest_path)
+					print(f"Copied file: {item} -> {folder}")
 
 def check_wzsound_file(error_window):
     program_data_dir = os.path.join(working_directory, 'ProgramData')
     wzsound_path = os.path.join(program_data_dir, 'WZSound.brsar')
 
-    if os.path.exists(wzsound_path):
-        print(f"WZSound.brsar found at: {wzsound_path}")
-    else:
+    if not os.path.exists(wzsound_path):
         print("WZSound.brsar not found. Prompting user to locate it...")
         dialog = MissingBrsarDialog(program_data_dir, error_window)
         result = dialog.exec()
