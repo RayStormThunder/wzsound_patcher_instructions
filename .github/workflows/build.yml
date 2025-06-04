@@ -63,16 +63,18 @@ jobs:
           mkdir release
           move dist\wzsound_main.exe release\
 
-      - name: Upload ZIP as Artifact
+      - name: Upload EXE as Artifact
         uses: actions/upload-artifact@v4
         with:
-          files: release/wzsound_main.exe
+          name: wzsound_patcher_instructions_windows
+          path: release/wzsound_main.exe
 
       - name: Upload EXE to GitHub Release (If Release Created)
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
           files: release/wzsound_main.exe
+
 
 
   buildMac:
@@ -123,15 +125,16 @@ jobs:
           mkdir -p release
           cp dist/wzsound_main release/
 
-
-      - name: Upload ZIP as Artifact
+      - name: Upload macOS Binary as Artifact
         uses: actions/upload-artifact@v4
         with:
-          files: release/wzsound_main
+          name: wzsound_patcher_instructions_macos
+          path: release/wzsound_main
 
-      - name: Upload ZIP to GitHub Release (If Release Created)
+      - name: Upload macOS Binary to GitHub Release (If Release Created)
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
           files: release/wzsound_main
+
 
