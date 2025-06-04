@@ -65,7 +65,6 @@ def append_and_replace_base_blank(base_blank_file, original_file):
 
     # Rename the temporary BaseBlankFile.brwsd to the original file name
     os.rename(temp_base_blank, original_file)
-    print(f"Appended {original_file} to BaseBlankFile.brwsd and renamed it to {original_file}")
 
 def combine_rwav_files_to_brwsd(rwav_folder, mod_folder, output_file):
 	"""Combines RWAV files, using modified versions from mod_folder if available."""
@@ -113,7 +112,7 @@ def combine_rwav_files_to_brwsd(rwav_folder, mod_folder, output_file):
 			with open(rwav_info['path'], 'rb') as f:
 				brwsd_file.write(f.read())
 
-		print(f"Created {output_file} with combined RWAV files and headers.")
+		print(f"Created {output_file}")
 
 def build_brwsd_from_unmodified_rwavs(working_directory, project_folder, progress_ui=None, cancel_flag=None):
 	unmod_folder = os.path.join(working_directory, "Projects", project_folder, "UnmodifiedRwavsSD")

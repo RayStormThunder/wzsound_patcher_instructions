@@ -64,8 +64,6 @@ def extract_rwar_files(input_file, output_filepath, target_folder="IndexesSD", p
 			progress_ui.progressBar.setValue(progress)
 			QApplication.processEvents()
 
-	print(f"\nTotal RWAR files with RWAV extracted: {total_found}")
-
 	# Reset progress before duplicate check
 	if progress_ui:
 		progress_ui.progressBar.setValue(0)
@@ -76,7 +74,6 @@ def extract_rwar_files(input_file, output_filepath, target_folder="IndexesSD", p
 	remove_duplicate_files(output_folder, progress_ui, cancel_flag)
 
 def remove_duplicate_files(folder, progress_ui=None, cancel_flag=None):
-	print("\nChecking for duplicate files...")
 	hash_map = {}
 	deleted = 0
 
@@ -96,7 +93,6 @@ def remove_duplicate_files(folder, progress_ui=None, cancel_flag=None):
 			file_hash = hashlib.md5(file_data).hexdigest()
 
 		if file_hash in hash_map:
-			print(f"Duplicate found: {filename} is a copy of {hash_map[file_hash]}. Deleting...")
 			os.remove(full_path)
 			deleted += 1
 		else:
@@ -109,6 +105,4 @@ def remove_duplicate_files(folder, progress_ui=None, cancel_flag=None):
 			if hasattr(progress_ui, "label_status"):
 				progress_ui.label_status.setText(f"Checking: {filename}")
 			QApplication.processEvents()
-
-	print(f"Duplicate removal complete. {deleted} files deleted.")
 

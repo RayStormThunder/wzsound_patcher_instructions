@@ -55,8 +55,6 @@ def extract_rwavs(file_path, project_name, progress_ui=None, cancel_flag=None):
 
 	if index < total:
 		print(f"Warning: Only {index} RWAV(s) found, expected {total}")
-	else:
-		print("RWAV extraction completed.")
 
 
 def check_modified_vs_unmodified(file_path, project_name):

@@ -59,42 +59,36 @@ except ImportError:
 
 try:
         from rwav_extract import setup_extraction, setup_extraction_converted, setup_extraction_HD
-        print("imported rwav_extract")
 except ImportError as e:
         print("failed to import rwav_extract")
         pass
 
 try:
         from rwar_extract import extract_rwar_files
-        print("imported rwar_extract")
 except ImportError as e:
         print("failed to import rwar_extract")
         pass
 
 try:
         from brwsd_creator import build_brwsd_from_unmodified_rwavs
-        print("imported brwsd_creator")
 except ImportError as e:
         print("failed to import brwsd_creator")
         pass
 
 try:
         from extract_brwsd import extract_rwavs, check_modified_vs_unmodified
-        print("imported extract_brwsd")
 except ImportError as e:
         print("failed to import extract_brwsd")
         pass
 
 try:
         from patch_creator import create_patch_file
-        print("imported patch_creator")
 except ImportError as e:
         print("failed to import patch_creator")
         pass
 
 try:
         from patch_wzsound import apply_wzsound_patch
-        print("imported patch_wzsound")
 except ImportError as e:
         print("failed to import patch_wzsound")
         pass
@@ -624,18 +618,18 @@ class WZSPI_MainWindow(QMainWindow):
                                         This button will create a new project with a name you give it.
                                         This is to be used if you want a completely new project.
                                         If you already have a modified WZSound that you edited in the past,
-                                        try looking at the '<b>Convert Modified SD WZSound to Project</b>' instead.
+                                        try looking at the, '<b>Convert Modified SD WZSound to Project,</b>' instead.
                                 </div>
                                 <br>
                                 <div>
                                         After you create a project you will be able to load the project in the
-                                        future with the '<b>Load SD Project</b>' button.
+                                        future with the, '<b>Load SD Project,</b>' button.
                                 </div>
                                 <br>
                                 <div>
                                         Try to name your project something that makes it clear what it is for.
                                         For example, if you are making a WZSound where you replaced Link's voice
-                                        with Mario's voice. You could call it something like: 'Mario Voice Pack.'
+                                        with Mario's voice, you could call it something like: 'Mario Voice Pack.'
                                 </div>
                         """,
 
@@ -649,7 +643,7 @@ class WZSPI_MainWindow(QMainWindow):
                                 <br>
                                 <div>
                                         This will also create an 'RWAV Instruction' file which is basically a file that says
-                                        what Index and Audio# your sounds were found at. It will the automatically make a
+                                        what Index and Audio[#] your sounds were found at. It will the automatically make a
                                         BRWSD Project with that information. And unlike '<b>Create SD Project</b>' it will
                                         automatically fill the BRWSD Project with sounds you have already replaced.
                                 </div>
@@ -708,13 +702,13 @@ class WZSPI_MainWindow(QMainWindow):
                                         will be applied to your project when you click, '<b>Create SD Project BRWSD.</b>'
                                         If you don't have anything in this list at all, you won't be allowed to press
                                         that button because you would be creating an empty project. If you wish to remove
-                                        something from the included list. You can select the item then click the, 'Move,'
+                                        something from the included list, you can select the item then click the, 'Move,'
                                         button to move it to the excluded list.
                                 </div>
                                 <br>
                                 <div>
                                         If your project was created from the, '<b>Convert Modified SD WZSound to Project,</b>'
-                                        button. Then it will automatically have an instruction file with the name you gave.
+                                        button, it will automatically have an instruction file with the name you gave.
                                 </div>
                         """,
 
@@ -739,7 +733,7 @@ class WZSPI_MainWindow(QMainWindow):
                                 <div>
                                         Keep in mind that any DEFAULT
                                         instruction files may be written over if you update the program. If you think
-                                        a default instruction file is not extracting everything it should. Ask <b>@RayStormThunder</b>
+                                        a default instruction file is not extracting everything it should, ask <b>@RayStormThunder</b>
                                         in the SSR or SSHDR server and I will look into it.
                                 </div>
                         """,
@@ -753,8 +747,8 @@ class WZSPI_MainWindow(QMainWindow):
                                         This folder is a collection of BRWSD files with every RWAV from
                                         the WZSound. You can open up any of these files with Brawlcrate
                                         and listen to the sounds. It is important to note that when going
-                                        through indexes in brawlcrate. All RWAVs will have names of Audio[#]
-                                        where '#' is a number. As such RWAVs will be referred to as such.
+                                        through indexes in brawlcrate, all RWAVs will have names of Audio[#]
+                                        where '#' is a number. As such, RWAVs will be referred to as Audio[#].
                                 </div>
                                 <br>
                                 <div>
@@ -782,8 +776,8 @@ class WZSPI_MainWindow(QMainWindow):
                         "button_save_changes": """
                                 <div style='font-size:14pt;'>Save Changes</div>
                                 <div>
-                                        This will save the changes made to the yaml. If you were creating an instruction file. A new file
-                                        will show up in your list with the name you gave. If you were editing an instruction file. That file
+                                        This will save the changes made to the yaml. If you were creating an instruction file, a new file
+                                        will show up in your list with the name you gave. If you were editing an instruction file, that file
                                         will now extract audio based on your new yaml changes.
                                 </div>
                         """,
@@ -791,8 +785,8 @@ class WZSPI_MainWindow(QMainWindow):
                         "button_cancel_changes": """
                                 <div style='font-size:14pt;'>Cancel Changes</div>
                                 <div>
-                                        Will discard all progress made. If you were creating an instruction file. No instruction file
-                                        will be created or show up in your list. If you were editing an instruction file. That file
+                                        Will discard all progress made. If you were creating an instruction file, no instruction file
+                                        will be created or show up in your list. If you were editing an instruction file, that file
                                         will remain unchanged.
                                 </div>
                         """,
@@ -815,8 +809,8 @@ class WZSPI_MainWindow(QMainWindow):
                                 </div>
                                 <br>
                                 <div>
-                                        If you do replace a sound effect with a sound effect that is larger in size than the original.
-                                        My program will just not replace that and can even warn you about what sound effects are too large.
+                                        If you do replace a sound effect with a sound effect that is larger in size than the original,
+                                        my program will just not replace that and can even warn you about what sound effects are too large.
                                 </div>
                         """,
 
@@ -834,7 +828,7 @@ class WZSPI_MainWindow(QMainWindow):
                                         what place in WZSound should that sound effect be inserted. Once it finds where every RWAV
                                         should go. It will create a folder with every RWAV that is modified and not too large along
                                         with an instruction file on where those RWAVs should be inserted at. Once completed, a window
-                                        will pop up showing you every RWAV that you haven't edited yet. As well as every RWAV that was
+                                        will pop up showing you every RWAV that you haven't edited yet as well as every RWAV that was
                                         too large. If there are any files that were too large, it will allow you to reset those sound effects
                                         back to their original sound effects in the, 'your_project.brwsd,' file.
                                 </div>
@@ -857,7 +851,7 @@ class WZSPI_MainWindow(QMainWindow):
                                 <div style='font-size:14pt;'>Patch SD WZSound</div>
                                 <div>
                                         This will insert the RWAV files from your project directly into the WZSound file
-                                        as described by the patch file. Because this does no searching. It should be
+                                        as described by the patch file. Because this does no searching, it should be
                                         incredibly fast.
                                 </div>
                         """,
@@ -866,7 +860,7 @@ class WZSPI_MainWindow(QMainWindow):
                                 <div style='font-size:14pt;'>Patch HD WZSound</div>
                                 <div>
                                         This will ask for the HD WZSound file if you haven't provided it before.
-                                        If you haven't provided it before then it will also have to extract all the
+                                        If you haven't provided it before, then it will also have to extract all the
                                         indexes.
                                 </div>
                                 <br>
@@ -1141,8 +1135,6 @@ class WZSPI_MainWindow(QMainWindow):
                 self.run_hd_patch()
 
         def run_hd_patch(self):
-                print("Running HD patch logic...")
-
                 progress_dialog = ProgressDialog(
                         self,
                         generated_text_message="Extracting RWAV files (HD)..."
@@ -1205,9 +1197,6 @@ class WZSPI_MainWindow(QMainWindow):
                 shutil.copy(source_brsar, patched_brsar)
 
                 copy_dialog.close()
-                print(f"[INFO] Copied WZSoundHD.brsar to {patched_brsar}")
-
-
                 # Step 3: Patch RWAVs
                 unmodified_folder = os.path.join(project_folder, "UnmodifiedRwavsHD")
                 modified_folder = os.path.join(project_folder, "ModifiedRwavs")
@@ -1254,7 +1243,6 @@ class WZSPI_MainWindow(QMainWindow):
                                 mod_data = f_mod.read()
 
                         if len(mod_data) > len(unmod_data):
-                                print(f"[SKIPPED] Modified RWAV '{filename}' is larger than original. Cannot safely replace.")
                                 continue
 
                         occurrences = find_all_occurrences(data, unmod_data)
@@ -1267,7 +1255,6 @@ class WZSPI_MainWindow(QMainWindow):
                                 data[index:index + len(mod_data)] = mod_data
                                 remaining = len(unmod_data) - len(mod_data)
                                 data[index + len(mod_data):index + len(unmod_data)] = b'\x00' * remaining
-                                print(f"[PATCHED] Replaced RWAV: {filename} at offset {index}")
 
                 progress_dialog.close()
 
@@ -1314,7 +1301,6 @@ class WZSPI_MainWindow(QMainWindow):
                 if completed:
                         self.show_confirmation()
 
-
         def show_confirmation(self):
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Information)
@@ -1353,14 +1339,11 @@ class WZSPI_MainWindow(QMainWindow):
 
 
         def convert_project(self):
-                print("Convert Project clicked")
                 self.convert_window = ConvertDialog(self.working_directory, self.project_name, self)
                 self.convert_window.exec()  # Use .show() if you want it non-modal
 
 
         def load_project(self):
-                print("Load Project clicked")
-
                 # Path to the Projects folder
                 projects_dir = os.path.join(self.working_directory, "Projects")
 
@@ -1404,13 +1387,9 @@ class WZSPI_MainWindow(QMainWindow):
                         self.ui.label_project.setText(self.project_name.replace("_", " ").title())
                         self.setup_project()
                         print(f"Loaded project: {self.project_name}")
-                else:
-                        print("Project loading canceled.")
 
 
         def create_project(self):
-                print("Create Project clicked")
-
                 # Prompt the user to enter a project name
                 name, ok = QInputDialog.getText(self, "Create Project", "Enter a name for the project:")
 
@@ -1440,12 +1419,8 @@ class WZSPI_MainWindow(QMainWindow):
                         except Exception as e:
                                 QMessageBox.critical(self, "Error", f"Failed to create project folder:\n{e}")
                         self.setup_project()
-                else:
-                        print("Project creation canceled or empty input.")
-
 
         def create_instructions(self):
-                print("Create Instructions clicked")
 
                 # Prompt the user to enter a name
                 name, ok = QInputDialog.getText(
@@ -1502,8 +1477,6 @@ class WZSPI_MainWindow(QMainWindow):
 
 
         def edit_instructions(self):
-                print("Edit Instructions clicked")
-
                 # Open file dialog starting in {working_directory}/Instructions
                 instructions_path = os.path.join(self.working_directory, "Instructions")
                 file_path, _ = QFileDialog.getOpenFileName(
@@ -1547,15 +1520,12 @@ class WZSPI_MainWindow(QMainWindow):
                         source = project_list
                         target = options_list
                 else:
-                        print("No items selected to move.")
                         return
 
                 # Move selected items
                 for item in source.selectedItems():
                         target.addItem(item.text())
                         source.takeItem(source.row(item))
-
-                print("Moved selected item(s).")
 
                 # Save the project list to instructions.yaml
                 if not hasattr(self, 'project_name') or not self.project_name:
@@ -1576,18 +1546,15 @@ class WZSPI_MainWindow(QMainWindow):
                 try:
                         with open(save_path, "w", encoding="utf-8") as f:
                                 yaml.dump(instructions, f, sort_keys=False, allow_unicode=True)
-                        print(f"Updated instruction file at: {save_path}")
                 except Exception as e:
                         QMessageBox.critical(self, "Save Error", f"Failed to save instructions.yaml:\n{e}")
 
 
         def cancel_changes(self):
-                print("Cancel Changes clicked")
                 self.ui.stacked_pages.setCurrentIndex(0)
                 self.ui.text_yaml_edit.setPlainText("")
 
         def save_changes(self):
-                print("Save Changes clicked")
                 self.ui.stacked_pages.setCurrentIndex(0)
 
                 # Make sure we have a name to use
@@ -1619,7 +1586,6 @@ class WZSPI_MainWindow(QMainWindow):
                 except Exception as e:
                         QMessageBox.critical(self, "Save Failed", f"Could not save file:\n{e}")
                 self.ui.text_yaml_edit.setPlainText("")
-                self.setup_project()
 
         def create_brwsd(self):
                 progress_dialog = ProgressDialog(self, generated_text_message="Starting BRWSD Creation...")
@@ -1642,43 +1608,43 @@ class WZSPI_MainWindow(QMainWindow):
 
 
         def create_wzsound(self):
-            extract_rwavs(self.working_directory, self.project_name)
-            too_big_list, exact_match_list = check_modified_vs_unmodified(self.working_directory, self.project_name)
+                extract_rwavs(self.working_directory, self.project_name)
+                too_big_list, exact_match_list = check_modified_vs_unmodified(self.working_directory, self.project_name)
 
-            progress_dialog = ProgressDialog(
-                    self,
-                    generated_text_message="Creating patch file, please wait..."
-            )
-            cancel_flag = {'cancelled': False}
+                progress_dialog = ProgressDialog(
+                        self,
+                        generated_text_message="Creating patch file, please wait..."
+                )
+                cancel_flag = {'cancelled': False}
 
-            # Connect close signal to update cancel_flag
-            progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
+                # Connect close signal to update cancel_flag
+                progress_dialog.cancelled.connect(lambda: cancel_flag.update(cancelled=True))
 
-            progress_dialog.show()
-            QApplication.processEvents()
+                progress_dialog.show()
+                QApplication.processEvents()
 
-            completed = create_patch_file(
-                    self.working_directory,
-                    self.project_name,
-                    too_big_list,
-                    exact_match_list,
-                    progress_ui=progress_dialog.ui,
-                    cancel_flag=cancel_flag
-            )
+                completed = create_patch_file(
+                        self.working_directory,
+                        self.project_name,
+                        too_big_list,
+                        exact_match_list,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
 
-            progress_dialog.close()
+                progress_dialog.close()
 
 
-            if not completed:
-                QMessageBox.critical(self, "Cancelled", "Operation cancelled by user.")
-                return
+                if not completed:
+                        QMessageBox.critical(self, "Cancelled", "Operation cancelled by user.")
+                        return
 
-            dialog = ReportDialog(self.working_directory, self.project_name, too_big_list, exact_match_list, self)
-            dialog.exec()
+                dialog = ReportDialog(self.working_directory, self.project_name, too_big_list, exact_match_list, self)
+                dialog.exec()
+
+                print("[SUCCESS] Create SD Patch Instructions")
 
         def setup_project(self):
-                print("Setting up project...")
-
                 # Clear both lists
                 self.ui.list_options.clear()
                 self.ui.list_project.clear()
@@ -1721,8 +1687,6 @@ class WZSPI_MainWindow(QMainWindow):
                                 self.ui.list_project.addItem(formatted_name)
                         else:
                                 self.ui.list_options.addItem(formatted_name)
-
-                print(f"Setup complete. {self.ui.list_project.count()} in project, {self.ui.list_options.count()} available.")
 
 
         def update_project_buttons_state(self):
