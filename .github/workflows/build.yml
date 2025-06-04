@@ -62,7 +62,7 @@ jobs:
         run: |
           mkdir release
           move dist\wzsound_main.exe release\
-          powershell -Command "Compress-Archive -Path release\wzsound_main.exe -DestinationPath wzsound_patcher_instructions.zip"
+          powershell -Command "Compress-Archive -Path release\* -DestinationPath wzsound_patcher_instructions.zip"
 
       - name: Upload ZIP as Artifact
         uses: actions/upload-artifact@v4
@@ -123,7 +123,7 @@ jobs:
         run: |
           mkdir -p release
           cp dist/wzsound_main release/
-          zip wzsound_patcher_instructions.zip release/wzsound_main
+          cd release && zip ../wzsound_patcher_instructions.zip *
 
       - name: Upload ZIP as Artifact
         uses: actions/upload-artifact@v4
