@@ -55,8 +55,14 @@ jobs:
 
       - name: Build Executable
         run: |
-          pyinstaller --onefile --hidden-import=yaml --add-data "Instructions;Instructions" --add-data "GUI;GUI" --add-data "ProgramData;ProgramData" wzsound_main.py
-
+          pyinstaller --onefile --windowed ^
+            --icon WZ.ico ^
+            --hidden-import=yaml ^
+            --add-data "WZ.ico;." ^
+            --add-data "Instructions;Instructions" ^
+            --add-data "GUI;GUI" ^
+            --add-data "ProgramData;ProgramData" ^
+            wzsound_main.py
 
       - name: Move Executable to Release Folder
         run: |
@@ -118,7 +124,13 @@ jobs:
 
       - name: Build Executable
         run: |
-          pyinstaller --onefile --hidden-import=yaml --add-data=Instructions:Instructions --add-data=GUI:GUI wzsound_main.py
+          pyinstaller --windowed \
+            --icon WZ.icns \
+            --hidden-import=yaml \
+            --add-data "WZ.icns:." \
+            --add-data "Instructions:Instructions" \
+            --add-data "GUI:GUI" \
+            wzsound_main.py
 
       - name: Move Executable to Release Folder
         run: |
