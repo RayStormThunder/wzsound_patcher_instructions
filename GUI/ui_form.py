@@ -15,17 +15,17 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QGridLayout,
-    QHBoxLayout, QLabel, QLayout, QListWidget,
-    QListWidgetItem, QMainWindow, QPushButton, QSizePolicy,
-    QStackedWidget, QStatusBar, QTextBrowser, QTextEdit,
-    QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFrame,
+    QGridLayout, QHBoxLayout, QLabel, QLayout,
+    QListWidget, QListWidgetItem, QMainWindow, QPushButton,
+    QSizePolicy, QStackedWidget, QStatusBar, QTextBrowser,
+    QTextEdit, QVBoxLayout, QWidget)
 
 class Ui_WZSPI_MainWindow(object):
     def setupUi(self, WZSPI_MainWindow):
         if not WZSPI_MainWindow.objectName():
             WZSPI_MainWindow.setObjectName(u"WZSPI_MainWindow")
-        WZSPI_MainWindow.resize(1200, 800)
+        WZSPI_MainWindow.resize(1252, 800)
         self.centralwidget = QWidget(WZSPI_MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.gridLayout = QGridLayout(self.centralwidget)
@@ -49,6 +49,9 @@ class Ui_WZSPI_MainWindow(object):
 
         self.horizontal_1_project_buttons.addWidget(self.button_convert_project)
 
+        self.horizontal_1_project_buttons.setStretch(0, 1)
+        self.horizontal_1_project_buttons.setStretch(1, 1)
+        self.horizontal_1_project_buttons.setStretch(2, 1)
 
         self.vertical_main.addLayout(self.horizontal_1_project_buttons)
 
@@ -229,6 +232,37 @@ class Ui_WZSPI_MainWindow(object):
 
         self.vertical_create = QVBoxLayout()
         self.vertical_create.setObjectName(u"vertical_create")
+        self.frame = QFrame(self.centralwidget)
+        self.frame.setObjectName(u"frame")
+        self.frame.setFrameShape(QFrame.Shape.StyledPanel)
+        self.frame.setFrameShadow(QFrame.Shadow.Raised)
+        self.verticalLayout_4 = QVBoxLayout(self.frame)
+        self.verticalLayout_4.setObjectName(u"verticalLayout_4")
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.button_upload_sd_cutscene = QPushButton(self.frame)
+        self.button_upload_sd_cutscene.setObjectName(u"button_upload_sd_cutscene")
+
+        self.horizontalLayout.addWidget(self.button_upload_sd_cutscene)
+
+        self.button_upload_hd_cutscene = QPushButton(self.frame)
+        self.button_upload_hd_cutscene.setObjectName(u"button_upload_hd_cutscene")
+
+        self.horizontalLayout.addWidget(self.button_upload_hd_cutscene)
+
+
+        self.verticalLayout_4.addLayout(self.horizontalLayout)
+
+        self.combo_allow_cutscene = QComboBox(self.frame)
+        self.combo_allow_cutscene.addItem("")
+        self.combo_allow_cutscene.addItem("")
+        self.combo_allow_cutscene.setObjectName(u"combo_allow_cutscene")
+
+        self.verticalLayout_4.addWidget(self.combo_allow_cutscene)
+
+
+        self.vertical_create.addWidget(self.frame)
+
         self.frame_1_create_brwsd = QFrame(self.centralwidget)
         self.frame_1_create_brwsd.setObjectName(u"frame_1_create_brwsd")
         self.frame_1_create_brwsd.setFrameShape(QFrame.Shape.StyledPanel)
@@ -358,9 +392,10 @@ class Ui_WZSPI_MainWindow(object):
         self.vertical_create.addWidget(self.frame_3_patch_wzsound_sd)
 
         self.vertical_create.setStretch(0, 1)
-        self.vertical_create.setStretch(1, 1)
-        self.vertical_create.setStretch(2, 1)
-        self.vertical_create.setStretch(3, 1)
+        self.vertical_create.setStretch(1, 3)
+        self.vertical_create.setStretch(2, 3)
+        self.vertical_create.setStretch(3, 3)
+        self.vertical_create.setStretch(4, 3)
 
         self.horizontal_2_main_content.addLayout(self.vertical_create)
 
@@ -397,6 +432,11 @@ class Ui_WZSPI_MainWindow(object):
         self.label_project.setText(QCoreApplication.translate("WZSPI_MainWindow", u"NO PROJECT LOADED", None))
         self.button_save_changes.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Save Changes", None))
         self.button_cancel_changes.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Cancel Changes", None))
+        self.button_upload_sd_cutscene.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Upload SD Cutscene Folder", None))
+        self.button_upload_hd_cutscene.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Upload HD Cutscene Folder", None))
+        self.combo_allow_cutscene.setItemText(0, QCoreApplication.translate("WZSPI_MainWindow", u"Allow Cutscene Instructions", None))
+        self.combo_allow_cutscene.setItemText(1, QCoreApplication.translate("WZSPI_MainWindow", u"Disallow Cutscene Instructions", None))
+
         self.button_create_brwsd.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create SD Project BRWSD", None))
         self.button_load_brwsd_folder.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Load Project Folder", None))
         self.label_description_brwsd.setHtml(QCoreApplication.translate("WZSPI_MainWindow", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
@@ -406,10 +446,7 @@ class Ui_WZSPI_MainWindow(object):
 "li.unchecked::marker { content: \"\\2610\"; }\n"
 "li.checked::marker { content: \"\\2612\"; }\n"
 "</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">This creates a BRWSD file with every RWAV file extracted from your instructions. You will be able to edit it with Brawlcrate AND be able to save that file.</p>\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0p"
-                        "x; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; font-style:italic; text-decoration: underline;\">Create SD Project BRWSD</span> Requirements:</p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; font-style:italic; text-decoration: underline;\">Create SD Project BRWSD</span> Requirements:</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Moved at least one instruction file to the right</p></body></html>", None))
         self.button_create_wzsound.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Create SD WZSound Patcher Instructions", None))
         self.button_load_instructions_folder.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Load Instructions Folder", None))
@@ -420,12 +457,10 @@ class Ui_WZSPI_MainWindow(object):
 "li.unchecked::marker { content: \"\\2610\"; }\n"
 "li.checked::marker { content: \"\\2612\"; }\n"
 "</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Creates a folder that contains every modified RWAV from your Project BRWSD and a file that records where each RWAV needs to be inserted into WZSound.</p>\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt"
-                        "-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; font-style:italic; text-decoration: underline;\">Create SD WZSound Patcher Instructions</span> Requirements:</p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; font-style:italic; text-decoration: underline;\">Create SD WZSound Patcher Instructions</span> Requirements:</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Moved at least one instruction file to the right</p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Created BRWSD Project</p></body></html>", None))
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-rig"
+                        "ht:0px; -qt-block-indent:0; text-indent:0px;\"> - Created BRWSD Project</p></body></html>", None))
         self.patch_sd.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Patch SD WZSound", None))
         self.load_sd.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Load SD WZSound Folder", None))
         self.label_description_patcher_hd.setHtml(QCoreApplication.translate("WZSPI_MainWindow", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
@@ -435,12 +470,10 @@ class Ui_WZSPI_MainWindow(object):
 "li.unchecked::marker { content: \"\\2610\"; }\n"
 "li.checked::marker { content: \"\\2612\"; }\n"
 "</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">This patches your RWAVs from your WZSound Patcher Instructions into an SD WZSound.</p>\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700;"
-                        " font-style:italic; text-decoration: underline;\">Patch to SD</span> Requirements:</p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; font-style:italic; text-decoration: underline;\">Patch to SD</span> Requirements:</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Moved at least one instruction file to the right</p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Created BRWSD Project</p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0;"
+                        " text-indent:0px;\"> - Created BRWSD Project</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Created WZSound Patcher Instructions</p></body></html>", None))
         self.patch_hd.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Patch HD WZSound", None))
         self.load_hd.setText(QCoreApplication.translate("WZSPI_MainWindow", u"Load HD WZSound Folder", None))
@@ -451,12 +484,10 @@ class Ui_WZSPI_MainWindow(object):
 "li.unchecked::marker { content: \"\\2610\"; }\n"
 "li.checked::marker { content: \"\\2612\"; }\n"
 "</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">This patches your RWAVs from your BRWSD Project into an HD WZSound. </p>\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; font-style:it"
-                        "alic; text-decoration: underline;\">Patch to HD</span> Requirements:</p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-weight:700; font-style:italic; text-decoration: underline;\">Patch to HD</span> Requirements:</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Moved at least one instruction file to the right</p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Created BRWSD Project</p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0;"
+                        " text-indent:0px;\"> - Created BRWSD Project</p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"> - Have HD WZSound</p></body></html>", None))
     # retranslateUi
 

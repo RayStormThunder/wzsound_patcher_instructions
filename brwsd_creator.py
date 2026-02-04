@@ -1,8 +1,11 @@
 import os
 import struct
 import shutil
+import re
 
 from PySide6.QtWidgets import QApplication
+
+_AUDIO_LINE_RE = re.compile(r'^\s*Audio\[(\d+)\]\s*:\s*(.+?)\s*$')
 
 def pad_to_multiple_of(value, multiple):
     """Pads a value to the next multiple of 'multiple'."""
@@ -67,11 +70,14 @@ def append_and_replace_base_blank(base_blank_file, original_file):
     os.rename(temp_base_blank, original_file)
 
 def combine_rwav_files_to_brwsd(rwav_folder, mod_folder, output_file):
-	"""Combines RWAV files, using modified versions from mod_folder if available."""
-	rwav_files = sorted(
-		[f for f in os.listdir(rwav_folder) if os.path.isfile(os.path.join(rwav_folder, f)) and f.endswith('.rwav')],
-		key=lambda x: int("".join(os.path.splitext(x)[0].split("_")[1:]))
-	)
+	"""Combines RWAV files, using modified versions from mod_folder if available.
+	Sort order matches _list_rwavs_in_build_order(): natural filename order.
+	"""
+	rwav_files = [
+		f for f in os.listdir(rwav_folder)
+		if os.path.isfile(os.path.join(rwav_folder, f)) and f.lower().endswith(".rwav")
+	]
+	rwav_files.sort(key=_natural_key)
 
 	rwav_files_info = []
 	current_offset = 0x20
@@ -82,14 +88,14 @@ def combine_rwav_files_to_brwsd(rwav_folder, mod_folder, output_file):
 		# Prefer modified version if it exists
 		modified_path = os.path.join(mod_folder, rwav_file)
 		original_path = os.path.join(rwav_folder, rwav_file)
-		file_path = modified_path if os.path.exists(modified_path) else original_path
+		file_path = modified_path if os.path.isfile(modified_path) else original_path
 
 		rwav_size = os.path.getsize(file_path)
 		rwav_files_info.append({
 			'name': rwav_file,
 			'offset': current_offset,
 			'size': rwav_size,
-			'path': file_path  # Save the actual file path to use later
+			'path': file_path
 		})
 		current_offset += rwav_size
 		rwav_total_size += rwav_size
@@ -107,12 +113,51 @@ def combine_rwav_files_to_brwsd(rwav_folder, mod_folder, output_file):
 		# Move to data offset
 		brwsd_file.seek(data_offset)
 
-		# Write RWAV data
+		# Write RWAV data in the exact same order
 		for rwav_info in rwav_files_info:
 			with open(rwav_info['path'], 'rb') as f:
 				brwsd_file.write(f.read())
 
-		print(f"Created {output_file}")
+	print(f"Created {output_file}")
+
+def _natural_key(s: str):
+	# Sort like: 1,2,10 instead of 1,10,2 (falls back gracefully)
+	return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)]
+
+def _list_rwavs_in_build_order(unmod_folder: str, mod_folder: str):
+	unmod_names = [
+		f for f in os.listdir(unmod_folder)
+		if os.path.isfile(os.path.join(unmod_folder, f)) and f.lower().endswith((".rwav", ".brwav", ".wav"))
+	]
+	unmod_names.sort(key=_natural_key)
+
+	result = []
+	for i, name in enumerate(unmod_names):
+		mod_path = os.path.join(mod_folder, name)
+		unmod_path = os.path.join(unmod_folder, name)
+
+		if os.path.isfile(mod_path):
+			used_path = mod_path
+			source = "Modified"
+		else:
+			used_path = unmod_path
+			source = "Unmodified"
+
+		result.append({
+			"index": i,
+			"used_path": used_path,
+			"display_name": name,
+			"source": source,
+		})
+
+	return result
+
+def _write_audio_manifest_txt(manifest_path: str, build_list):
+	os.makedirs(os.path.dirname(manifest_path), exist_ok=True)
+
+	with open(manifest_path, "w", encoding="utf-8") as f:
+		for entry in build_list:
+			f.write(f'Audio[{entry["index"]}]:{entry["display_name"]}\n')
 
 def build_brwsd_from_unmodified_rwavs(working_directory, project_folder, progress_ui=None, cancel_flag=None):
 	unmod_folder = os.path.join(working_directory, "Projects", project_folder, "UnmodifiedRwavsSD")
@@ -120,8 +165,15 @@ def build_brwsd_from_unmodified_rwavs(working_directory, project_folder, progres
 	output_brwsd = os.path.join(working_directory, "Projects", project_folder, "your_project.brwsd")
 	base_blank = os.path.join(working_directory, "ProgramData", "BaseBlankFile.brwsd")
 
+	# Put the txt right next to the brwsd (you can rename if you want)
+	manifest_txt = os.path.splitext(output_brwsd)[0] + "_AudioMap.txt"
+
 	if not os.path.exists(unmod_folder) or not os.path.exists(base_blank):
 		return
+
+	# Build + write the manifest BEFORE combining, so it matches the exact planned order
+	build_list = _list_rwavs_in_build_order(unmod_folder, mod_folder)
+	_write_audio_manifest_txt(manifest_txt, build_list)
 
 	if progress_ui:
 		progress_ui.generated_text.setText("Combining RWAVs into BRWSD...")
@@ -139,4 +191,3 @@ def build_brwsd_from_unmodified_rwavs(working_directory, project_folder, progres
 	if progress_ui:
 		progress_ui.progressBar.setMaximum(100)
 		progress_ui.progressBar.setValue(100)
-

@@ -7,9 +7,10 @@ import hashlib
 import yaml
 import shutil
 import subprocess
+import ctypes
 
-from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton, QVBoxLayout, QLineEdit, QLabel, QListWidget, QTextEdit
-from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QCursor
+from PySide6.QtWidgets import QDialog, QFileDialog, QApplication, QMainWindow, QMessageBox, QInputDialog, QPushButton, QVBoxLayout, QLineEdit, QLabel, QListWidget, QTextEdit, QComboBox
+from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QCursor, QIcon
 from PySide6.QtCore import QTimer, QStringListModel, Signal, QEvent, Qt
 
 # Try importing ui_form from current directory or GUI folder
@@ -18,6 +19,15 @@ try:
 except ImportError:
         try:
                 from GUI.ui_form import Ui_WZSPI_MainWindow
+        except ImportError as e:
+                raise ImportError("Could not import Ui_WZSPI_MainWindow from ui_form or GUI.ui_form") from e
+
+# Try importing hover_text from current directory or GUI folder
+try:
+        from hover_text import get_hover_descriptions
+except ImportError:
+        try:
+                from GUI.hover_text import get_hover_descriptions
         except ImportError as e:
                 raise ImportError("Could not import Ui_WZSPI_MainWindow from ui_form or GUI.ui_form") from e
 
@@ -64,7 +74,7 @@ except ImportError as e:
         pass
 
 try:
-        from rwar_extract import extract_rwar_files
+        from rwar_extract import extract_rwar_files, remove_duplicate_files
 except ImportError as e:
         print("failed to import rwar_extract")
         pass
@@ -93,6 +103,12 @@ except ImportError as e:
         print("failed to import patch_wzsound")
         pass
 
+# Import version information
+try:
+    from version import VERSION, COMMIT_ID
+except ImportError:
+    VERSION, COMMIT_ID = "v0.0.0", "badcafe"
+
 def get_file_hash(file_path, hash_type='sha256'):
         hasher = hashlib.new(hash_type)
         with open(file_path, 'rb') as f:
@@ -102,6 +118,11 @@ def get_file_hash(file_path, hash_type='sha256'):
 
 EXPECTED_SD_HASH = "917b19ae47307be10ecb894fdc77b5e03aeae390748449cee5663099b34034d1"
 EXPECTED_HD_HASH = "6e4b9ad376df1d815326aa4e3d44de47872e3ebac57aee95cf28956a8a1ae960"
+
+ALLOW_CUTSCENES = True
+IS_PROJECT_LOADED = False
+IS_CUTSCENE_FOLDER_CREATED = False
+IS_HD_CUTSCENE_FOLDER_CREATED = False
 
 def is_valid_filename(name):
         # Only allow letters, numbers, spaces, underscores, and dashes
@@ -544,8 +565,12 @@ class WZSPI_MainWindow(QMainWindow):
                 self.ui.button_move.clicked.connect(self.move)
                 self.ui.button_cancel_changes.clicked.connect(self.cancel_changes)
                 self.ui.button_save_changes.clicked.connect(self.save_changes)
-                self.ui.button_create_brwsd.clicked.connect(self.create_brwsd)
+                self.ui.button_create_brwsd.clicked.connect(
+                        lambda: self.create_brwsd(keep_dialog=True)
+                )
                 self.ui.button_create_wzsound.clicked.connect(self.create_wzsound)
+                self.ui.button_upload_sd_cutscene.clicked.connect(lambda: self.create_cutscenes())
+                self.ui.button_upload_hd_cutscene.clicked.connect(lambda: self.create_cutscenes_hd())
 
                 # Connect patch_sd to run_patch
                 self.ui.patch_sd.clicked.connect(self.run_patch)
@@ -559,6 +584,11 @@ class WZSPI_MainWindow(QMainWindow):
                 self.ui.load_hd.clicked.connect(self.open_modified_hd_wzsound)
                 self.ui.button_load_brwsd_folder.clicked.connect(self.open_brwsd)
                 self.ui.button_load_instructions_folder.clicked.connect(self.open_instructions)
+                self.ui.combo_allow_cutscene.currentIndexChanged.connect(
+                        self.on_allow_cutscene_changed
+                )
+
+
 
                 # Set up the project name and disable buttons by default
                 self.project_name = None
@@ -611,287 +641,342 @@ class WZSPI_MainWindow(QMainWindow):
                 if hasattr(self.ui, "validateButton"):
                         self.ui.validateButton.clicked.connect(self.validate_yaml)
 
-                self.hover_descriptions = {
-                        "button_create_project": """
-                                <div style='font-size:14pt;'>Create SD Project</div>
-                                <div>
-                                        This button will create a new project with a name you give it.
-                                        This is to be used if you want a completely new project.
-                                        If you already have a modified WZSound that you edited in the past,
-                                        try looking at the, '<b>Convert Modified SD WZSound to Project,</b>' instead.
-                                </div>
-                                <br>
-                                <div>
-                                        After you create a project you will be able to load the project in the
-                                        future with the, '<b>Load SD Project,</b>' button.
-                                </div>
-                                <br>
-                                <div>
-                                        Try to name your project something that makes it clear what it is for.
-                                        For example, if you are making a WZSound where you replaced Link's voice
-                                        with Mario's voice, you could call it something like: 'Mario Voice Pack.'
-                                </div>
-                        """,
+                self.update_cutscene_ui_state()
 
-                        "button_convert_project": """
-                                <div style='font-size:14pt;'>Convert SD Project</div>
-                                <div>
-                                        This button lets you convert a previously modified WZSound into a project folder.
-                                        Use this if you've already edited a WZSound file in the past and want to bring that work
-                                        into the patcher system without starting over.
-                                </div>
-                                <br>
-                                <div>
-                                        This will also create an 'RWAV Instruction' file which is basically a file that says
-                                        what Index and Audio[#] your sounds were found at. It will the automatically make a
-                                        BRWSD Project with that information. And unlike '<b>Create SD Project</b>' it will
-                                        automatically fill the BRWSD Project with sounds you have already replaced.
-                                </div>
-                                <br>
-                                <div>
-                                        From there you can either add more 'RWAV Instruction' files to your project and replace
-                                        even more sounds. You could also '<b>Create SD WZSound Patcher Instructions</b>' or
-                                        you could '<b>Patch HD WZSound.</b>'
-                                </div>
-                        """,
+                # Description Text
+                self.hover_descriptions = get_hover_descriptions()
 
-                        "button_load_project": """
-                                <div style='font-size:14pt;'>Load SD Project</div>
-                                <div>
-                                        Use this button to open an existing project you previously created or converted.
-                                        Once loaded, you can: <br>
-                                        '<b>Create, Edit, Move, RWAV Extraction Instructions</b>',<br>
-                                        '<b>Create SD WZSound Patcher Instructions</b>',<br>
-                                        '<b>Patch SD WZSound</b>',<br>
-                                        '<b>Patch HD WZSound</b>',
-                                </div>
-                                <br>
-                                <div>
-                                        In the case you have multiple projects. You will load your project by selecting it
-                                        via a dropdown. The dropdown will be sorted by, 'last modified.'
-                                </div>
-                        """,
-
-                        "list_options": """
-                                <div style='font-size:14pt;'>Excluded RWAV Instructions</div>
-                                <div>
-                                        This list contains a bunch of instruction files. These instruction files
-                                        explain what RWAVs to extract from what indexes. They are given names to
-                                        represent what types of sounds they will extract. For example, 'Link Sound Effects,'
-                                        will extract all of Link's sound effects into your project BRWSD if included.
-                                </div>
-                                <br>
-                                <div>
-                                        This list is the <b>EXCLUDED</b> list. This means it will not try to extract these
-                                        sounds. If you want any of these sounds to be added to your project, you can click
-                                        on them and then hit the, 'Move,' button to move it to the included list.
-                                </div>
-                        """,
-
-                        "list_project": """
-                                <div style='font-size:14pt;'>Included RWAV Instructions</div>
-                                <div>
-                                        This list contains a bunch of instruction files. These instruction files
-                                        explain what RWAVs to extract from what indexes. They are given names to
-                                        represent what types of sounds they will extract. For example, 'Link Sound Effects,'
-                                        will extract all of Link's sound effects into your project BRWSD if included.
-                                </div>
-                                <br>
-                                <div>
-                                        This list is the <b>INCLUDED</b> list. Any instructions in this list
-                                        will be applied to your project when you click, '<b>Create SD Project BRWSD.</b>'
-                                        If you don't have anything in this list at all, you won't be allowed to press
-                                        that button because you would be creating an empty project. If you wish to remove
-                                        something from the included list, you can select the item then click the, 'Move,'
-                                        button to move it to the excluded list.
-                                </div>
-                                <br>
-                                <div>
-                                        If your project was created from the, '<b>Convert Modified SD WZSound to Project,</b>'
-                                        button, it will automatically have an instruction file with the name you gave.
-                                </div>
-                        """,
-
-                        "button_create_instructions": """
-                                <div style='font-size:14pt;'>Create Instructions</div>
-                                <div>
-                                        Creates a new instruction file that can be used to define what RWAVs should be
-                                        added to your BRWSD Project when included. You only need to create instructions
-                                        if there currently any instruction files that extract the RWAVs you need.
-                                </div>
-                        """,
-
-                        "button_edit_instructions": """
-                                <div style='font-size:14pt;'>Edit Instructions</div>
-                                <div>
-                                        Allows you to edit an instruction file.
-                                        It will open an explorer window showing all the instruction yaml files. You can select
-                                        the yaml you want to edit. You only need to edit instructions if the instruction
-                                        file is not extracting all the RWAVs it should.
-                                </div>
-                                <br>
-                                <div>
-                                        Keep in mind that any DEFAULT
-                                        instruction files may be written over if you update the program. If you think
-                                        a default instruction file is not extracting everything it should, ask <b>@RayStormThunder</b>
-                                        in the SSR or SSHDR server and I will look into it.
-                                </div>
-                        """,
-
-                        "text_yaml_edit": """
-                                <div style='font-size:14pt;'>YAML Instructions</div>
-                                <div>
-                                        This is a YAML file that is used to tell the program what RWAVs to
-                                        extract from what indexes. If you go to the root folder, (The folder
-                                        that contains the exe,) you will see a folder called "Indexes."
-                                        This folder is a collection of BRWSD files with every RWAV from
-                                        the WZSound. You can open up any of these files with Brawlcrate
-                                        and listen to the sounds. It is important to note that when going
-                                        through indexes in brawlcrate, all RWAVs will have names of Audio[#]
-                                        where '#' is a number. As such, RWAVs will be referred to as Audio[#].
-                                </div>
-                                <br>
-                                <div>
-                                        There is some documentation of what sounds are in what indexes here: <br>
-                                        <a href="https://docs.google.com/spreadsheets/d/1DCLMLXRMok6Iyk0BDTjtdBkzT1k1zQvzSfZXEwR0kiE/edit?gid=1359457321#gid=1359457321">
-                                                InstructionPatcherIndex - Google Spreadsheet
-                                        </a>
-                                        <br>
-                                        You want to go to the tab called, 'InstructionPatcherIndex,' NOT the one called 'WZSoundIndex.'
-                                        This has some, but not all, documentation of what types of sounds are in that index. This can
-                                        make it easier to find specific sound effects.
-                                </div>
-                                <br>
-                                <div>
-                                        Sounds are extracted by stating an Index, like Index_005. Then giving a series of Audio[#] or
-                                        range of Audio[#] For example:<br><br>
-                                        Index_004:<br>
-                                           - 1<br>
-                                           - 3 - 7<br><br>
-                                        This will extract the Audio[#] 1, 3, 4, 5, 6, 7 from Index_004. You could also simply put "- All"
-                                        if you wish to extract everything from that Index.
-                                </div>
-                        """,
-
-                        "button_save_changes": """
-                                <div style='font-size:14pt;'>Save Changes</div>
-                                <div>
-                                        This will save the changes made to the yaml. If you were creating an instruction file, a new file
-                                        will show up in your list with the name you gave. If you were editing an instruction file, that file
-                                        will now extract audio based on your new yaml changes.
-                                </div>
-                        """,
-
-                        "button_cancel_changes": """
-                                <div style='font-size:14pt;'>Cancel Changes</div>
-                                <div>
-                                        Will discard all progress made. If you were creating an instruction file, no instruction file
-                                        will be created or show up in your list. If you were editing an instruction file, that file
-                                        will remain unchanged.
-                                </div>
-                        """,
-
-                        "button_create_brwsd": """
-                                <div style='font-size:14pt;'>Create BRWSD</div>
-                                <div>
-                                        Creates a new BRWSD file based on the current included RWAV Extraction Instructions.
-                                        This will look at the instructions that are included and extract all of those RWAVs
-                                        into a file called, 'your_project.brwsd.' You can then open up that file in Brawlcrate.
-                                        You can replace sound effects and save the project to come back to later.
-                                </div>
-                                <br>
-                                <div>
-                                        Once opened in Brawlcrate, you can listen to all the sound effects and then replace them
-                                        with the sound effects you think it should have. It is important to note that SIZE of the
-                                        sound effect can not be EQUAL to or GREATER than the sound effect you are replacing.
-                                        When you are clicked on a sound effect. You can see a field called, 'Uncompressed Size (Bytes).'
-                                        The file you replace it with must have a smaller size than that value.
-                                </div>
-                                <br>
-                                <div>
-                                        If you do replace a sound effect with a sound effect that is larger in size than the original,
-                                        my program will just not replace that and can even warn you about what sound effects are too large.
-                                </div>
-                        """,
-
-                        "button_load_brwsd_folder": """
-                                <div style='font-size:14pt;'>Load BRWSD Folder</div>
-                                <div>
-                                        This just opens the folder in which, 'your_project.brwsd' lies.
-                                </div>
-                        """,
-
-                        "button_create_wzsound": """
-                                <div style='font-size:14pt;'>Create WZSound</div>
-                                <div>
-                                        This will take whatever sound effects are in, 'your_project.brwsd,' and figure out at
-                                        what place in WZSound should that sound effect be inserted. Once it finds where every RWAV
-                                        should go. It will create a folder with every RWAV that is modified and not too large along
-                                        with an instruction file on where those RWAVs should be inserted at. Once completed, a window
-                                        will pop up showing you every RWAV that you haven't edited yet as well as every RWAV that was
-                                        too large. If there are any files that were too large, it will allow you to reset those sound effects
-                                        back to their original sound effects in the, 'your_project.brwsd,' file.
-                                </div>
-                                <br>
-                                <div>
-                                        The goal of this is to be able to easily and quickly patch the WZSound file with only the
-                                        RWAVs you are changing and a patch file. After this step is completed, '<b>Patch SD WZSound</b>,'
-                                        should be nearly instant.
-                                </div>
-                        """,
-
-                        "button_load_instructions_folder": """
-                                <div style='font-size:14pt;'>Load Instructions Folder</div>
-                                <div>
-                                        This just opens the folder in which, 'WZSoundPatchInstructions' folder lies.
-                                </div>
-                        """,
-
-                        "patch_sd": """
-                                <div style='font-size:14pt;'>Patch SD WZSound</div>
-                                <div>
-                                        This will insert the RWAV files from your project directly into the WZSound file
-                                        as described by the patch file. Because this does no searching, it should be
-                                        incredibly fast.
-                                </div>
-                        """,
-
-                        "patch_hd": """
-                                <div style='font-size:14pt;'>Patch HD WZSound</div>
-                                <div>
-                                        This will ask for the HD WZSound file if you haven't provided it before.
-                                        If you haven't provided it before, then it will also have to extract all the
-                                        indexes.
-                                </div>
-                                <br>
-                                <div>
-                                        It will then search the entire file for each unmodified RWAV file, and then
-                                        for each RWAV found, it will insert your modified RWAV at that location.
-                                        Due to the fact it has to search the entire 2GB file as many times as there
-                                        are modified RWAVs. This process can take awhile to complete.
-                                </div>
-                        """,
-
-                        "load_hd": """
-                                <div style='font-size:14pt;'>Load HD WZSound</div>
-                                <div>
-                                        This just opens the folder in which the HD, 'WZSound' file lies.
-                                </div>
-                        """,
-
-                        "load_sd": """
-                                <div style='font-size:14pt;'>Load SD WZSound</div>
-                                <div>
-                                        This just opens the folder in which the SD, 'WZSound' file lies.
-                                </div>
-                        """
-                }
-
+                for name, widget in self.ui.__dict__.items():
+                        if isinstance(widget, (QPushButton, QListWidget, QComboBox)) and name in self.hover_descriptions:
+                                widget.installEventFilter(self)
 
                 # Install event filters on buttons and lists
                 for name, widget in self.ui.__dict__.items():
-                        if isinstance(widget, (QPushButton, QListWidget)) and name in self.hover_descriptions:
+                        if isinstance(widget, (QPushButton, QListWidget, QComboBox)) and name in self.hover_descriptions:
                                 widget.installEventFilter(self)
+
+        def update_cutscene_ui_state(self):
+                # Paths
+                sd_demo = os.path.join(self.working_directory, "ProgramData", "demo")
+                hd_demo = os.path.join(self.working_directory, "ProgramData", "demoHD")
+
+                has_sd_demo = os.path.isdir(sd_demo)
+                has_hd_demo = os.path.isdir(hd_demo)
+
+                # Defaults
+                self.ui.combo_allow_cutscene.setEnabled(False)
+                self.ui.combo_allow_cutscene.setVisible(False)
+
+                self.ui.button_upload_sd_cutscene.setVisible(True)
+                self.ui.button_upload_hd_cutscene.setVisible(True)
+
+                # --- SD cutscene logic ---
+                if has_sd_demo:
+                        # SD cutscene folder already exists
+                        self.ui.button_upload_sd_cutscene.setVisible(False)
+                        self.ui.combo_allow_cutscene.setVisible(True)
+                else:
+                        if IS_PROJECT_LOADED:
+                                self.ui.combo_allow_cutscene.setEnabled(True)
+
+                # --- HD cutscene logic ---
+                if has_hd_demo:
+                        self.ui.button_upload_hd_cutscene.setVisible(False)
+                        self.ui.combo_allow_cutscene.setVisible(True)
+                else:
+                        if IS_PROJECT_LOADED:
+                                self.ui.combo_allow_cutscene.setEnabled(True)
+
+        def on_allow_cutscene_changed(self, index: int):
+                global ALLOW_CUTSCENES
+                ALLOW_CUTSCENES = (index == 0)
+                project_dir = os.path.join(self.working_directory, "Projects", self.project_name)
+                self.write_cutscenes_flag(project_dir, ALLOW_CUTSCENES)
+
+        def write_cutscenes_flag(self, base_folder: str, value: bool) -> None:
+                path = os.path.join(base_folder, "cutscene.txt")
+                with open(path, "w", encoding="utf-8") as f:
+                        f.write("true" if value else "false")
+
+        def read_cutscenes_flag(self, base_folder: str) -> bool:
+                path = os.path.join(base_folder, "cutscene.txt")
+
+                # If file does not exist → create it with true
+                if not os.path.exists(path):
+                        self.write_cutscenes_flag(base_folder, True)
+                        return True
+
+                try:
+                        with open(path, "r", encoding="utf-8") as f:
+                                return f.read().strip().lower() == "true"
+                except Exception:
+                        # Fail-safe default
+                        return True
+
+        def create_cutscenes(self):
+                # Folder picker
+                src_dir = QFileDialog.getExistingDirectory(
+                        self,
+                        "Select folder demo folder containing SD .brsar files",
+                        self.working_directory
+                )
+                if not src_dir:
+                        return
+
+                # Destinations
+                programdata_demo = os.path.join(self.working_directory, "ProgramData", "demo")
+                flat_out = os.path.join(self.working_directory, "IndexesSD")  # <- no /demo
+                temp_root = os.path.join(flat_out, "_tmp_extract")
+
+                os.makedirs(programdata_demo, exist_ok=True)
+                os.makedirs(flat_out, exist_ok=True)
+                os.makedirs(temp_root, exist_ok=True)
+
+                # Find .brsar files (recursive)
+                brsar_files = []
+                for root, _, files in os.walk(src_dir):
+                        for fn in files:
+                                if fn.lower().endswith(".brsar"):
+                                        brsar_files.append(os.path.join(root, fn))
+
+                if not brsar_files:
+                        QMessageBox.information(self, "No Files Found", "No .brsar files were found in that folder.")
+                        return
+
+                copied = 0
+                extracted = 0
+                moved = 0
+                errors = []
+
+                # ---- COPY PHASE ----
+                for src_path in brsar_files:
+                        try:
+                                dest_path = os.path.join(programdata_demo, os.path.basename(src_path))
+                                shutil.copy2(src_path, dest_path)
+                                copied += 1
+                        except Exception as e:
+                                errors.append(f"Copy failed: {os.path.basename(src_path)} → {e}")
+
+                # ---- EXTRACTION + FLATTEN PHASE ----
+                for fn in os.listdir(programdata_demo):
+                        if not fn.lower().endswith(".brsar"):
+                                continue
+
+                        brsar_path = os.path.join(programdata_demo, fn)
+                        brsar_stem = os.path.splitext(fn)[0]
+
+                        # Extract into temp subfolder
+                        temp_folder_rel = os.path.join("IndexesSD", "_tmp_extract", brsar_stem)  # <- no /demo
+                        temp_folder_abs = os.path.join(self.working_directory, temp_folder_rel)
+
+                        try:
+                                # Ensure clean temp folder
+                                if os.path.exists(temp_folder_abs):
+                                        shutil.rmtree(temp_folder_abs)
+                                os.makedirs(temp_folder_abs, exist_ok=True)
+
+                                extract_rwar_files(
+                                        brsar_path,
+                                        self.working_directory,
+                                        target_folder=temp_folder_rel
+                                )
+                                extracted += 1
+
+                                # Move extracted files into flat_out
+                                for out_name in os.listdir(temp_folder_abs):
+                                        src_out = os.path.join(temp_folder_abs, out_name)
+
+                                        if not os.path.isfile(src_out):
+                                                continue
+
+                                        # out_name example: "Index_025_621.brwsd"
+                                        out_stem, out_ext = os.path.splitext(out_name)
+
+                                        # Remove "Index_" prefix if present, keep the rest (e.g. "025_621")
+                                        if out_stem.startswith("Index_"):
+                                                out_stem = out_stem[len("Index_"):]
+
+                                        # Final name: "CutsceneA_025_621.brwsd"
+                                        flat_name = f"{brsar_stem}_{out_stem}{out_ext}"
+                                        dst_out = os.path.join(flat_out, flat_name)
+
+                                        # If exists, suffix
+                                        if os.path.exists(dst_out):
+                                                base, ext = os.path.splitext(flat_name)
+                                                n = 2
+                                                while True:
+                                                        alt = os.path.join(flat_out, f"{base}_{n}{ext}")
+                                                        if not os.path.exists(alt):
+                                                                dst_out = alt
+                                                                break
+                                                        n += 1
+
+                                        shutil.move(src_out, dst_out)
+                                        moved += 1
+
+                        except Exception as e:
+                                errors.append(f"Extract/flatten failed: {fn} → {e}")
+
+                # Cleanup temp
+                try:
+                        if os.path.exists(temp_root):
+                                shutil.rmtree(temp_root)
+                except Exception:
+                        pass
+
+                try:
+                        remove_duplicate_files(flat_out)
+                except Exception as e:
+                        errors.append(f"Duplicate cleanup failed → {e}")
+
+                msg = (
+                        f"Copied: {copied} .brsar file(s)\n"
+                        f"Extracted: {extracted} archive(s)\n"
+                        f"Flattened files moved: {moved}\n\n"
+                        f"Flat output folder:\n{flat_out}"
+                )
+
+                if errors:
+                        msg += "\n\nErrors:\n" + "\n".join(errors[:10])
+                        if len(errors) > 10:
+                                msg += f"\n...and {len(errors) - 10} more"
+
+                QMessageBox.information(self, "Cutscene Extraction Complete", msg)
+                self.update_cutscene_ui_state()
+
+
+        def create_cutscenes_hd(self):
+                # Folder picker
+                src_dir = QFileDialog.getExistingDirectory(
+                        self,
+                        "Select folder demo folder containing HD .brsar files",
+                        self.working_directory
+                )
+                if not src_dir:
+                        return
+
+                # Destinations
+                programdata_demo = os.path.join(self.working_directory, "ProgramData", "demoHD")
+                flat_out = os.path.join(self.working_directory, "IndexesHD")  # <- no /demo
+                temp_root = os.path.join(flat_out, "_tmp_extract")
+
+                os.makedirs(programdata_demo, exist_ok=True)
+                os.makedirs(flat_out, exist_ok=True)
+                os.makedirs(temp_root, exist_ok=True)
+
+                # Find .brsar files (recursive)
+                brsar_files = []
+                for root, _, files in os.walk(src_dir):
+                        for fn in files:
+                                if fn.lower().endswith(".brsar"):
+                                        brsar_files.append(os.path.join(root, fn))
+
+                if not brsar_files:
+                        QMessageBox.information(self, "No Files Found", "No .brsar files were found in that folder.")
+                        return
+
+                copied = 0
+                extracted = 0
+                moved = 0
+                errors = []
+
+                # ---- COPY PHASE ----
+                for src_path in brsar_files:
+                        try:
+                                dest_path = os.path.join(programdata_demo, os.path.basename(src_path))
+                                shutil.copy2(src_path, dest_path)
+                                copied += 1
+                        except Exception as e:
+                                errors.append(f"Copy failed: {os.path.basename(src_path)} → {e}")
+
+                # ---- EXTRACTION + FLATTEN PHASE ----
+                for fn in os.listdir(programdata_demo):
+                        if not fn.lower().endswith(".brsar"):
+                                continue
+
+                        brsar_path = os.path.join(programdata_demo, fn)
+                        brsar_stem = os.path.splitext(fn)[0]
+
+                        # Extract into temp subfolder
+                        temp_folder_rel = os.path.join("IndexesHD", "_tmp_extract", brsar_stem)  # <- no /demo
+                        temp_folder_abs = os.path.join(self.working_directory, temp_folder_rel)
+
+                        try:
+                                # Ensure clean temp folder
+                                if os.path.exists(temp_folder_abs):
+                                        shutil.rmtree(temp_folder_abs)
+                                os.makedirs(temp_folder_abs, exist_ok=True)
+
+                                extract_rwar_files(
+                                        brsar_path,
+                                        self.working_directory,
+                                        target_folder=temp_folder_rel
+                                )
+                                extracted += 1
+
+                                # Move extracted files into flat_out
+                                for out_name in os.listdir(temp_folder_abs):
+                                        src_out = os.path.join(temp_folder_abs, out_name)
+
+                                        if not os.path.isfile(src_out):
+                                                continue
+
+                                        # out_name example: "Index_025_621.brwsd"
+                                        out_stem, out_ext = os.path.splitext(out_name)
+
+                                        # Remove "Index_" prefix if present, keep the rest (e.g. "025_621")
+                                        if out_stem.startswith("Index_"):
+                                                out_stem = out_stem[len("Index_"):]
+
+                                        # Final name: "CutsceneA_025_621.brwsd"
+                                        flat_name = f"{brsar_stem}_{out_stem}{out_ext}"
+                                        dst_out = os.path.join(flat_out, flat_name)
+
+                                        # If exists, suffix
+                                        if os.path.exists(dst_out):
+                                                base, ext = os.path.splitext(flat_name)
+                                                n = 2
+                                                while True:
+                                                        alt = os.path.join(flat_out, f"{base}_{n}{ext}")
+                                                        if not os.path.exists(alt):
+                                                                dst_out = alt
+                                                                break
+                                                        n += 1
+
+                                        shutil.move(src_out, dst_out)
+                                        moved += 1
+
+                        except Exception as e:
+                                errors.append(f"Extract/flatten failed: {fn} → {e}")
+
+                # Cleanup temp
+                try:
+                        if os.path.exists(temp_root):
+                                shutil.rmtree(temp_root)
+                except Exception:
+                        pass
+
+                try:
+                        remove_duplicate_files(flat_out)
+                except Exception as e:
+                        errors.append(f"Duplicate cleanup failed → {e}")
+
+                msg = (
+                        f"Copied: {copied} .brsar file(s)\n"
+                        f"Extracted: {extracted} archive(s)\n"
+                        f"Flattened files moved: {moved}\n\n"
+                        f"Flat output folder:\n{flat_out}"
+                )
+
+                if errors:
+                        msg += "\n\nErrors:\n" + "\n".join(errors[:10])
+                        if len(errors) > 10:
+                                msg += f"\n...and {len(errors) - 10} more"
+
+                QMessageBox.information(self, "Cutscene Extraction Complete", msg)
+                self.update_cutscene_ui_state()
+
+
 
         def on_yaml_focus_in(self, event):
                 self.is_editing_yaml = True
@@ -1014,6 +1099,9 @@ class WZSPI_MainWindow(QMainWindow):
                 self.create_brwsd_converted(project_name)
 
         def create_brwsd_converted(self, project_name):
+                project_dir = os.path.join(self.working_directory, "Projects", project_name)
+                allow_cutscenes = self.read_cutscenes_flag(project_dir)
+
                 progress_dialog = ProgressDialog(
                         self,
                         generated_text_message="Starting BRWSD Creation..."
@@ -1024,10 +1112,35 @@ class WZSPI_MainWindow(QMainWindow):
                 progress_dialog.show()
                 QApplication.processEvents()
 
-                extract_rwavs(self.working_directory, project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
-                setup_extraction(self.working_directory, project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
-                setup_extraction_converted(self.working_directory, project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
-                build_brwsd_from_unmodified_rwavs(self.working_directory, project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+                extract_rwavs(
+                        self.working_directory,
+                        project_name,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
+
+                setup_extraction(
+                        self.working_directory,
+                        project_name,
+                        allow_cutscenes=allow_cutscenes,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
+
+                setup_extraction_converted(
+                        self.working_directory,
+                        project_name,
+                        allow_cutscenes=allow_cutscenes,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
+
+                build_brwsd_from_unmodified_rwavs(
+                        self.working_directory,
+                        project_name,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
 
                 progress_dialog.close()
 
@@ -1120,14 +1233,16 @@ class WZSPI_MainWindow(QMainWindow):
                 else:
                         print("[INFO] Instructions file not found.")
 
-
         def handle_patch_hd_click(self):
+                self.create_brwsd()
                 indexes_hd_path = os.path.join(self.working_directory, "IndexesHD")
+
+                # If IndexesHD missing, require HD WZSound and extract IndexesHD normally
                 if not os.path.exists(indexes_hd_path):
                         dialog = MissingBrsarHDDialog(self.working_directory, self)
                         if dialog.exec() != QDialog.Accepted:
                                 print("User cancelled HD WZSound selection.")
-                                return  # Skip rest if user cancels
+                                return
                         else:
                                 print("HD WZSound provided.")
 
@@ -1135,6 +1250,9 @@ class WZSPI_MainWindow(QMainWindow):
                 self.run_hd_patch()
 
         def run_hd_patch(self):
+                project_dir = os.path.join(self.working_directory, "Projects", self.project_name)
+                allow_cutscenes = self.read_cutscenes_flag(project_dir)
+
                 progress_dialog = ProgressDialog(
                         self,
                         generated_text_message="Extracting RWAV files (HD)..."
@@ -1150,6 +1268,7 @@ class WZSPI_MainWindow(QMainWindow):
                 setup_extraction_HD(
                         self.working_directory,
                         project_name,
+                        allow_cutscenes=allow_cutscenes,
                         progress_ui=progress_dialog.ui,
                         cancel_flag=cancel_flag
                 )
@@ -1158,125 +1277,219 @@ class WZSPI_MainWindow(QMainWindow):
 
                 self.patch_hd_wzsound(self.working_directory, project_name)
 
-                progress_dialog.close()
-
-
-
         def patch_hd_wzsound(self, working_directory, project_name):
-                def find_all_occurrences(data: bytes, pattern: bytes) -> list:
-                        indices = []
-                        start = 0
-                        while True:
-                                index = data.find(pattern, start)
-                                if index == -1:
-                                        break
-                                indices.append(index)
-                                start = index + 1
-                        return indices
-
+                # ---- PATHS ----
                 project_folder = os.path.join(working_directory, "Projects", project_name)
 
-                # Step 1: Create "WZSoundHD" folder inside the project folder
                 hd_output_folder = os.path.join(project_folder, "ModifiedWZSoundHD")
                 os.makedirs(hd_output_folder, exist_ok=True)
 
-                # Step 2: Copy original HD WZSound.brsar into that folder with visual feedback
-                source_brsar = os.path.join(working_directory, "ProgramData", "WZSoundHD.brsar")
-                patched_brsar = os.path.join(hd_output_folder, "WZSound.brsar")
+                source_wz_hd = os.path.join(working_directory, "ProgramData", "WZSoundHD.brsar")
+                source_demo_dir = os.path.join(working_directory, "ProgramData", "demoHD")
 
-                copy_dialog = ProgressDialog(
-                        self,
-                        generated_text_message="Copying WZSound HD to project folder..."
-                )
-                copy_dialog.setWindowTitle("Copying File")
-                copy_dialog.ui.progressBar.setMaximum(0)  # Indeterminate
-                copy_dialog.ui.progressBar.setValue(0)
-                copy_dialog.show()
-                QApplication.processEvents()
-
-                shutil.copy(source_brsar, patched_brsar)
-
-                copy_dialog.close()
-                # Step 3: Patch RWAVs
                 unmodified_folder = os.path.join(project_folder, "UnmodifiedRwavsHD")
                 modified_folder = os.path.join(project_folder, "ModifiedRwavs")
 
-                # Load file into memory
-                with open(patched_brsar, "rb") as f:
-                        data = bytearray(f.read())
+                if not os.path.isfile(source_wz_hd):
+                        print(f"[ERROR] Missing HD source file: {source_wz_hd}")
+                        return
+                if not os.path.isdir(unmodified_folder):
+                        print(f"[ERROR] Missing folder: {unmodified_folder}")
+                        return
+                if not os.path.isdir(modified_folder):
+                        print(f"[ERROR] Missing folder: {modified_folder}")
+                        return
 
-                # Prepare list of RWAVs to patch
-                rwav_files = [f for f in os.listdir(unmodified_folder) if f.endswith(".rwav")]
-                total = len(rwav_files)
-                processed = 0
+                # ---- BUILD TARGET LIST (WZSoundHD + demoHD/*.brsar) ----
+                targets: list[tuple[str, str]] = []  # (label, full_path)
+                targets.append(("WZSound.brsar", source_wz_hd))
 
-                # Show progress dialog
-                progress_dialog = ProgressDialog(
-                        self,
-                        generated_text_message="Patching WZSound for HD..."
-                )
-                progress_dialog.setWindowTitle("Patching RWAV Files...")
-                progress_dialog.ui.progressBar.setMaximum(total)
-                progress_dialog.show()
-                QApplication.processEvents()
+                if os.path.isdir(source_demo_dir):
+                        for fn in sorted(os.listdir(source_demo_dir)):
+                                if fn.lower().endswith(".brsar"):
+                                        targets.append((fn, os.path.join(source_demo_dir, fn)))
 
-                QApplication.processEvents()
+                if not targets:
+                        print("[ERROR] No target .brsar files found.")
+                        return
 
-                for filename in rwav_files:
-                        processed += 1
+                # ---- LOAD UNMOD+MOD RWAV PAIRS (ONLY WHERE MOD EXISTS) ----
+                rwav_pairs: list[tuple[str, bytes, bytes]] = []  # (filename, unmod_data, mod_data)
 
-                        if hasattr(progress_dialog.ui, "label_status"):
-                                progress_dialog.ui.label_status.setText(f"Patching {processed} of {total}: {filename}")
-                        if hasattr(progress_dialog.ui, "progressBar"):
-                                progress_dialog.ui.progressBar.setValue(processed)
-                        QApplication.processEvents()
+                unmod_names = [f for f in sorted(os.listdir(unmodified_folder)) if f.lower().endswith(".rwav")]
+                if not unmod_names:
+                        print("[WARNING] No unmodified RWAVs found in UnmodifiedRwavsHD.")
+                        return
 
-                        unmod_path = os.path.join(unmodified_folder, filename)
-                        mod_path = os.path.join(modified_folder, filename)
+                for fn in unmod_names:
+                        unmod_path = os.path.join(unmodified_folder, fn)
+                        mod_path = os.path.join(modified_folder, fn)
 
-                        if not os.path.exists(mod_path):
-                                continue  # No modified version exists
+                        # Only usable if a modified version exists
+                        if not os.path.isfile(mod_path):
+                                continue
 
-                        with open(unmod_path, "rb") as f_unmod:
-                                unmod_data = f_unmod.read()
-                        with open(mod_path, "rb") as f_mod:
-                                mod_data = f_mod.read()
+                        try:
+                                with open(unmod_path, "rb") as f:
+                                        unmod_data = f.read()
+                                with open(mod_path, "rb") as f:
+                                        mod_data = f.read()
+                        except Exception:
+                                continue
 
+                        # Safety: we only support overwrite-with-pad (mod <= unmod)
                         if len(mod_data) > len(unmod_data):
                                 continue
 
-                        occurrences = find_all_occurrences(data, unmod_data)
+                        rwav_pairs.append((fn, unmod_data, mod_data))
 
-                        if not occurrences:
-                                print(f"[WARNING] Could not find unmodified RWAV: {filename}")
+                if not rwav_pairs:
+                        print("[WARNING] No RWAV pairs to patch (no matching modified files, or size checks failed).")
+                        return
+
+                # ---- SCAN TARGETS FOR RWAV HEADERS ----
+                RWAV_MAGIC = b"RWAV\xFE\xFF\x01\x02"
+
+                # label -> {"path": str, "offsets": list[int]}
+                target_rwav_index: dict[str, dict] = {}
+
+                for label, path in targets:
+                        try:
+                                with open(path, "rb") as f:
+                                        data = f.read()
+                        except Exception as e:
+                                print(f"[WARN] Could not read {label}: {e}")
+                                target_rwav_index[label] = {"path": path, "offsets": []}
                                 continue
 
-                        for index in occurrences:
-                                data[index:index + len(mod_data)] = mod_data
-                                remaining = len(unmod_data) - len(mod_data)
-                                data[index + len(mod_data):index + len(unmod_data)] = b'\x00' * remaining
+                        offsets: list[int] = []
+                        start = 0
+                        while True:
+                                i = data.find(RWAV_MAGIC, start)
+                                if i == -1:
+                                        break
+                                offsets.append(i)
+                                start = i + 1
 
-                progress_dialog.close()
+                        target_rwav_index[label] = {"path": path, "offsets": offsets}
 
-                # Show "Writing file..." dialog
-                write_dialog = ProgressDialog(
+                # ---- COUNT TOTAL RWAVS (FOR PROGRESS) ----
+                total_rwavs = sum(len(info["offsets"]) for info in target_rwav_index.values())
+                if total_rwavs == 0:
+                        print("[WARNING] No RWAV headers found in any target file.")
+                        return
+
+                # ---- PROGRESS DIALOG ----
+                progress_dialog = ProgressDialog(
                         self,
-                        generated_text_message="Writing WZSound HD to file. Please be patient..."
+                        generated_text_message="Patching HD WZSound..."
                 )
-                write_dialog.setWindowTitle("Saving File")
-                write_dialog.ui.progressBar.setMaximum(0)  # Indeterminate
-                write_dialog.ui.progressBar.setValue(0)
-                write_dialog.show()
+                progress_dialog.setWindowTitle("Patching HD WZSound")
+                progress_dialog.ui.progressBar.setMaximum(total_rwavs)
+                progress_dialog.ui.progressBar.setValue(0)
+                progress_dialog.show()
                 QApplication.processEvents()
 
-                # Save patched file
-                with open(patched_brsar, "wb") as f:
-                        f.write(data)
+                step = 0
 
-                write_dialog.close()
+                def try_patch_at_offset(data: bytearray, offset: int) -> bool:
+                        """
+                        Checks if ANY unmodified RWAV matches EXACTLY at this offset.
+                        If match -> overwrite with modified data (and pad zeros to unmod length).
+                        Returns True if changed.
+                        """
+                        for fn, unmod_data, mod_data in rwav_pairs:
+                                end_unmod = offset + len(unmod_data)
+                                if end_unmod > len(data):
+                                        continue
+
+                                if data[offset:end_unmod] != unmod_data:
+                                        continue
+
+                                # Match found: override bytes
+                                data[offset:offset + len(mod_data)] = mod_data
+
+                                # Zero out any remaining bytes if mod is smaller
+                                remaining = len(unmod_data) - len(mod_data)
+                                if remaining > 0:
+                                        data[offset + len(mod_data):end_unmod] = b"\x00" * remaining
+
+                                return True
+
+                        return False
+
+                # ---- PATCH ALL TARGETS ----
+                out_demo_dir = os.path.join(hd_output_folder, "demo")
+                wrote_any_demo = False
+
+                for label, path in targets:
+                        try:
+                                with open(path, "rb") as f:
+                                        data = bytearray(f.read())
+                        except Exception as e:
+                                print(f"[WARN] Could not read target for patching {label}: {e}")
+
+                                # Still advance progress for this target's headers
+                                step += len(target_rwav_index.get(label, {}).get("offsets", []))
+                                if hasattr(progress_dialog.ui, "progressBar"):
+                                        progress_dialog.ui.progressBar.setValue(step)
+                                QApplication.processEvents()
+                                continue
+
+                        changed = False
+                        offsets = target_rwav_index.get(label, {}).get("offsets", [])
+
+                        for off in offsets:
+                                if hasattr(progress_dialog.ui, "label_status"):
+                                        progress_dialog.ui.label_status.setText(f"{label} | RWAV @ 0x{off:X}")
+
+                                # Attempt patch at this RWAV header
+                                if try_patch_at_offset(data, off):
+                                        changed = True
+
+                                # Progress increments PER RWAV HEADER processed (match or not)
+                                step += 1
+                                if hasattr(progress_dialog.ui, "progressBar"):
+                                        progress_dialog.ui.progressBar.setValue(step)
+                                QApplication.processEvents()
+
+                        # ---- WRITE OUTPUT RULES ----
+                        if label == "WZSound.brsar":
+                                # Always output WZSound
+                                out_path = os.path.join(hd_output_folder, "WZSound.brsar")
+                                try:
+                                        with open(out_path, "wb") as f:
+                                                f.write(data)
+                                except Exception as e:
+                                        progress_dialog.close()
+                                        print(f"[ERROR] Could not write patched WZSound: {e}")
+                                        return
+                        else:
+                                # Demo: only write if changed
+                                if not changed:
+                                        continue
+
+                                os.makedirs(out_demo_dir, exist_ok=True)
+                                out_path = os.path.join(out_demo_dir, label)
+                                try:
+                                        with open(out_path, "wb") as f:
+                                                f.write(data)
+                                        wrote_any_demo = True
+                                except Exception as e:
+                                        print(f"[ERROR] Could not write patched demo file {label}: {e}")
+
+                # Remove empty demo dir if nothing written
+                if not wrote_any_demo:
+                        try:
+                                if os.path.isdir(out_demo_dir) and not os.listdir(out_demo_dir):
+                                        os.rmdir(out_demo_dir)
+                        except Exception:
+                                pass
+
+                progress_dialog.close()
                 self.show_confirmation_hd()
 
-                print("[SUCCESS] WZSound.brsar HD patching complete.")
+
 
         def run_patch(self):
                 progress_dialog = ProgressDialog(
@@ -1386,6 +1599,19 @@ class WZSPI_MainWindow(QMainWindow):
                         self.project_name = project_map[selected_name]
                         self.ui.label_project.setText(self.project_name.replace("_", " ").title())
                         self.setup_project()
+                        project_dir = os.path.join(self.working_directory, "Projects", self.project_name)
+
+                        allow_cutscenes = self.read_cutscenes_flag(project_dir)
+
+                        # Block signal so it doesn't re-write the file while setting UI
+                        self.ui.combo_allow_cutscene.blockSignals(True)
+                        self.ui.combo_allow_cutscene.setCurrentIndex(0 if allow_cutscenes else 1)
+                        self.ui.combo_allow_cutscene.blockSignals(False)
+
+                        self.ui.combo_allow_cutscene.setEnabled(True)
+
+                        IS_PROJECT_LOADED = True
+                        self.ui.combo_allow_cutscene.setEnabled(True)
                         print(f"Loaded project: {self.project_name}")
 
 
@@ -1587,7 +1813,10 @@ class WZSPI_MainWindow(QMainWindow):
                         QMessageBox.critical(self, "Save Failed", f"Could not save file:\n{e}")
                 self.ui.text_yaml_edit.setPlainText("")
 
-        def create_brwsd(self):
+        def create_brwsd(self, keep_dialog=False):
+                project_dir = os.path.join(self.working_directory, "Projects", self.project_name)
+                allow_cutscenes = self.read_cutscenes_flag(project_dir)
+
                 progress_dialog = ProgressDialog(self, generated_text_message="Starting BRWSD Creation...")
                 progress_dialog.setWindowTitle("Creating BRWSD")
                 cancel_flag = {"cancelled": False}
@@ -1595,19 +1824,36 @@ class WZSPI_MainWindow(QMainWindow):
                 progress_dialog.show()
                 QApplication.processEvents()
 
-                extract_rwavs(self.working_directory, self.project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
-                setup_extraction(self.working_directory, self.project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
-                build_brwsd_from_unmodified_rwavs(self.working_directory, self.project_name, progress_ui=progress_dialog.ui, cancel_flag=cancel_flag)
+                extract_rwavs(
+                        self.working_directory,
+                        self.project_name,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
+
+                setup_extraction(
+                        self.working_directory,
+                        self.project_name,
+                        allow_cutscenes=allow_cutscenes,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
+
+                build_brwsd_from_unmodified_rwavs(
+                        self.working_directory,
+                        self.project_name,
+                        progress_ui=progress_dialog.ui,
+                        cancel_flag=cancel_flag
+                )
 
                 progress_dialog.close()
 
-                # Show the report dialog using your new class
-                dialog = SuccessDialog(self.working_directory, self.project_name, self)
-                dialog.exec()
-
-
+                if keep_dialog:
+                    dialog = SuccessDialog(self.working_directory, self.project_name, self)
+                    dialog.exec()
 
         def create_wzsound(self):
+                self.create_brwsd()
                 extract_rwavs(self.working_directory, self.project_name)
                 too_big_list, exact_match_list = check_modified_vs_unmodified(self.working_directory, self.project_name)
 
@@ -1674,6 +1920,24 @@ class WZSPI_MainWindow(QMainWindow):
 
                 yaml_files = [f for f in os.listdir(instructions_path) if f.endswith(".yaml")]
 
+                # Build set of valid instruction names (formatted)
+                valid_set = {
+                        os.path.splitext(f)[0].replace("_", " ").title()
+                        for f in yaml_files
+                }
+
+                # Remove invalid entries from instructions.yaml
+                filtered_instructions = [name for name in selected_set if name in valid_set]
+
+                # Rewrite instructions.yaml if it changed
+                if set(filtered_instructions) != selected_set:
+                        try:
+                                with open(instructions_yaml_path, "w", encoding="utf-8") as f:
+                                        yaml.safe_dump(sorted(filtered_instructions), f)
+                        except Exception as e:
+                                QMessageBox.critical(self, "Error", f"Failed to update instructions.yaml:\n{e}")
+                                return
+
                 if not yaml_files:
                         QMessageBox.information(self, "No Files", "No YAML files found in Instructions.")
                         return
@@ -1739,7 +2003,6 @@ class WZSPI_MainWindow(QMainWindow):
                         self.ui.load_hd.setEnabled(False)
                         self.ui.button_create_brwsd.setEnabled(False)
                         self.ui.button_create_wzsound.setEnabled(False)
-
 
 if __name__ == "__main__":
         app = QApplication(sys.argv)
