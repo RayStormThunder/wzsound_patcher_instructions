@@ -53,6 +53,43 @@ def parse_instruction_value(value):
     return list(range(start, end + 1))
   return [int(value)]
 
+
+def normalize_rwav_payload(extracted_data, trailer_scan_window=0x100):
+    """Normalize extracted RWAV bytes to avoid over-read artifacts.
+
+    - If a second RWAV header appears near the end, trim from that header onward.
+    - Rewrite the RWAV size field to match the normalized byte length.
+    """
+    if not extracted_data or len(extracted_data) < 12:
+        return extracted_data
+
+    # Trim trailing embedded RWAV headers that indicate accidental overlap.
+    while True:
+        trailing_header_offset = extracted_data.rfind(b'RWAV', 4)
+        if trailing_header_offset == -1:
+            break
+
+        bytes_from_tail = len(extracted_data) - trailing_header_offset
+        if bytes_from_tail > trailer_scan_window:
+            break
+
+        extracted_data = extracted_data[:trailing_header_offset]
+        if len(extracted_data) < 12:
+            break
+
+    if len(extracted_data) < 12:
+        return extracted_data
+
+    # RWAV total size lives at offset 0x08 in big-endian format.
+    updated_size = len(extracted_data)
+    extracted_data = (
+        extracted_data[:8]
+        + struct.pack(">I", updated_size)
+        + extracted_data[12:]
+    )
+
+    return extracted_data
+
 def extract_rwav_from_instructions(
     working_directory, project_folder, instructions, target_path, output="UnmodifiedRwavsSD",
     progress_ui=None, cancel_flag=None
@@ -144,7 +181,23 @@ def extract_rwav_from_instructions(
                     continue
 
                 rwav_size = struct.unpack(">I", data[size_offset:size_offset + 4])[0]
+
+                # RWAV chunks are 16-byte aligned; discard impossible low nibble.
+                if rwav_size & 0xF:
+                    rwav_size &= ~0xF
+
+                if rwav_size <= 0:
+                    continue
+
+                max_size_available = len(data) - offset
+                if rwav_size > max_size_available:
+                    rwav_size = max_size_available
+
                 extracted_data = data[offset:offset + rwav_size]
+                extracted_data = normalize_rwav_payload(extracted_data)
+
+                if len(extracted_data) < 12:
+                    continue
 
                 if index_key.lower().startswith("demo"):
                     # If we’re only extracting a single RWAV (common demo case),

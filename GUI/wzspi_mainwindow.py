@@ -283,9 +283,9 @@ class MissingBrsarDialog(QDialog):
                         file_hash = get_file_hash(file_path)
                         print(f"File hash: {file_hash}")
 
-                        if file_hash != EXPECTED_SD_HASH:
-                                QMessageBox.critical(self, "Invalid File", "The selected file does not match the expected SD WZSound.brsar. Make sure you submit an UNMODIFIED SD WZSound.brsar")
-                                return
+                        #if file_hash != EXPECTED_SD_HASH:
+                        #        QMessageBox.critical(self, "Invalid File", "The selected file does not match the expected SD WZSound.brsar. Make sure you submit an UNMODIFIED SD WZSound.brsar")
+                        #        return
 
 
                         try:
@@ -355,10 +355,10 @@ class MissingBrsarHDDialog(QDialog):
                         file_hash = get_file_hash(file_path)
                         print(f"File hash: {file_hash}")
 
-                        if file_hash != EXPECTED_HD_HASH:
-                                QMessageBox.critical(self, "Invalid File", "The selected file does not match the expected HD WZSound.brsar. Make sure you submit an UNMODIFIED HD WZSound.brsar")
-                                self.reject()
-                                return
+                        #if file_hash != EXPECTED_HD_HASH:
+                        #        QMessageBox.critical(self, "Invalid File", "The selected file does not match the expected HD WZSound.brsar. Make sure you submit an UNMODIFIED HD WZSound.brsar")
+                        #        self.reject()
+                        #        return
 
                         try:
                                 if not os.path.exists(self.program_data_dir):
